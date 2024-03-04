@@ -1,0 +1,132 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Get Script"
+      parameters:
+        componentName: "Start"
+    Get Script:
+      type: "python-script"
+      transitions:
+        success:
+        - "Print Variables"
+      parameters:
+        componentName: "Get Script"
+        script: |
+          import boto3
+          s3 = boto3.client('s3')
+          response = s3.get_object(Bucket=p_bucket_name, Key=p_script_key)
+          context.updateVariable('prvt_script', response['Body'].read().decode('utf-8'))
+        interpreter: "Python 3"
+        timeout: "360"
+    Print Variables:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Execute Script"
+      parameters:
+        componentName: "Print Variables"
+        variablesToPrint:
+        - - "prvt_script"
+        prefixText:
+        includeVariableName: "No"
+    Execute Script:
+      type: "python-pushdown"
+      parameters:
+        componentName: "Execute Script"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          from io import StringIO
+
+          for cur in session.connection.execute_stream(StringIO(prvt_script)):
+              print("Running: ", cur.query)
+              for ret in cur:
+                  print(ret)
+        scriptTimeout: "360"
+  variables:
+    prvt_script:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    p_bucket_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "your-s3-bucket"
+    p_script_key:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "scripts/the-script.sql"
+design:
+  components:
+    Start:
+      position:
+        x: -20
+        "y": 0
+      tempMetlId: 1
+    Get Script:
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+    Print Variables:
+      position:
+        x: 380
+        "y": 0
+      tempMetlId: 3
+    Execute Script:
+      position:
+        x: 580
+        "y": 0
+      tempMetlId: 4
+  notes:
+    "1":
+      position:
+        x: -110
+        "y": 150
+      size:
+        height: 148
+        width: 500
+      theme: "light-red"
+      content: |-
+        Remember to set default values for the two pipeline variables:
+
+        - p_bucket_name - name of your S3 bucket
+        - p_script_key - path to the SQL script
+
+        Or else pass them in when calling this pipeline from another.
+    "2":
+      position:
+        x: 90
+        "y": -200
+      size:
+        height: 318
+        width: 240
+      theme: "white"
+      content: |-
+        Fetch the SQL script from S3 using `boto3`.
+
+        There is no need to authenticate using AWS keys provided you have given your Agent the IAM privileges to read from your S3 bucket.
+    "3":
+      position:
+        x: 490
+        "y": -200
+      size:
+        height: 318
+        width: 250
+      theme: "white"
+      content: "Execute the contents of the script statement by statement using Python\
+        \ Pushdown"
