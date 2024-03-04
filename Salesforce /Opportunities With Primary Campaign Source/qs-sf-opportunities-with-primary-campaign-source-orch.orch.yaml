@@ -1,0 +1,206 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Salesforce Opportunity"
+        - "Salesforce Account"
+        - "Salesforce User"
+        - "Salesforce Campaign"
+      parameters:
+        componentName: "Start"
+    Salesforce Opportunity:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Opportunity"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Opportunity"
+        dataSelection:
+        - "Id"
+        - "AccountId"
+        - "OwnerId"
+        - "CampaignId"
+        - "Name"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_opportunity"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Account:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Account"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Account"
+        dataSelection:
+        - "Id"
+        - "Name"
+        - "OwnerId"
+        - "BillingCountry"
+        - "BillingState"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_account"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce User:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce User"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "User"
+        dataSelection:
+        - "Id"
+        - "Name"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_user"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Campaign:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Campaign"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Campaign"
+        dataSelection:
+        - "Id"
+        - "Name"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_campaign"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Sync:
+      type: "and"
+      transitions:
+        success:
+        - "Build integrated report"
+      parameters:
+        componentName: "Sync"
+    Build integrated report:
+      type: "run-transformation"
+      parameters:
+        componentName: "Build integrated report"
+        transformationJob: "qs-sf-opportunities-with-primary-campaign-source-tran"
+        setScalarVariables:
+        setGridVariables:
+  variables:
+    SalesforceOAuthName:
+      metadata:
+        type: "TEXT"
+        description: "Name of your Salesforce OAuth"
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "Your-Salesforce-OAuth-name"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        y: 0
+      tempMetlId: 1
+    Salesforce Opportunity:
+      position:
+        x: 150
+        y: -150
+      tempMetlId: 4
+    Salesforce Account:
+      position:
+        x: 150
+        y: -50
+      tempMetlId: 5
+    Salesforce User:
+      position:
+        x: 150
+        y: 50
+      tempMetlId: 6
+    Salesforce Campaign:
+      position:
+        x: 150
+        y: 150
+      tempMetlId: 7
+    Sync:
+      position:
+        x: 300
+        y: 0
+      tempMetlId: 2
+    Build integrated report:
+      position:
+        x: 450
+        y: 0
+      tempMetlId: 3
+  notes:
+    1:
+      position:
+        x: -300
+        y: -110
+      size:
+        height: 140
+        width: 270
+      theme: "light-red"
+      content: "Please set the default value of the `SalesforceOAuthName` pipeline var\
+        iable before running or validating"
