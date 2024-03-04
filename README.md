@@ -4,7 +4,7 @@ Use this repository to discover and implant Matillion Best Practices within your
 
 ## To use:
 1. Prerequisites
-⋅⋅* [Installing the Matillion Data Productivity Cloud app in GitHub](https://docs.matillion.com/data-productivity-cloud/designer/docs/installing-matillion-app-github-marketplace/)
+- [Installing the Matillion Data Productivity Cloud app in GitHub](https://docs.matillion.com/data-productivity-cloud/designer/docs/installing-matillion-app-github-marketplace/)
 
 2. Directions
-⋅⋅* Fork this repository, making it available to your Github account
+- Fork this repository, making it available to your Github account
