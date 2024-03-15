@@ -7,4 +7,10 @@ Use this repository to discover and implant Matillion Best Practices within your
 - [Installing the Matillion Data Productivity Cloud app in GitHub](https://docs.matillion.com/data-productivity-cloud/designer/docs/installing-matillion-app-github-marketplace/)
 
 2. Directions
-- Fork this repository, making it available to your Github account
+- Fork this repository (referred to as "forked repository" for the following steps), making it available to your Github account. 
+- [Create a new Matillion project](https://docs.matillion.com/data-productivity-cloud/designer/docs/projects/#add-a-new-project), setting it up with Advanced settings to allow the connection to a remote Github repo.
+- From within the Designer UI, select [Git > Pull remote changes](https://docs.matillion.com/data-productivity-cloud/designer/docs/git-pull/)
+- Your [Pipelines](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/) should populate with Best Practice pipelines, available for editing according to your use case.
+
+## Best Practice Pipelines Library
+Coming soon!
