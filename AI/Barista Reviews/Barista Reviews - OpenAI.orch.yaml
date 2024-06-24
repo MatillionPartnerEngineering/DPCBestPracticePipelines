@@ -1,0 +1,104 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "OpenAI Prompt"
+      parameters:
+        componentName: "Start"
+    OpenAI Prompt:
+      type: "ai-prompt"
+      parameters:
+        componentName: "OpenAI Prompt"
+        service:
+          provider: "OpenAI"
+          openAI:
+            model: "gpt-4"
+            apiKey: "OpenAI-Key"
+            temperature: "1"
+            "n": "1"
+            maxTokens:
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "STG_BARISTA_REVIEWS"
+            keyColumn: "name"
+            limit: ""
+        promptContext:
+          userContext: "You're a marketing analyst reviewing user comments from a\
+            \ well-known barista company."
+          inputs:
+          - - "name"
+            - "name"
+          - - "review"
+            - "review"
+          outputFormat: "JSON"
+          outputs:
+          - - "anger_score"
+            - "Give a score between 0 and 10 on the level of anger you feel in the\
+              \ user's review"
+          - - "anger_reason"
+            - "Give a single word describing the reason why the user is angry. In\
+              \ the case of a positive review, keep the field blank. Remember, not\
+              \ two words, just ONE!"
+          - - "sentiment"
+            - "Answer by \"Positive\", \"Neutral\", \"Negative\" based on the sentiment\
+              \ of the user's comment."
+          - - "anger_summary"
+            - "Give a humorous summary of the user comment, in a single sentence that\
+              \ could have been written by a barista. Remember to keep it really fun!"
+          - - "swear_words"
+            - "Answer \"Yes\" if you found swear words in the user review. Otherwise,\
+              \ answer by \"No\""
+          - - "product_involved"
+            - "Extract the product name involved in the user comment. Keep the field\
+              \ blank if you can't find any."
+          - - "wont_return"
+            - "Answer \"Yes\" if the user indicates that they will never come again\
+              \ to the shop. Otherwise, answer \"No\". "
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "BARISTA_REVIEWS_PROCESSED_OPENAI"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+design:
+  components:
+    Start:
+      position:
+        x: -960
+        "y": -90
+      tempMetlId: 1
+    OpenAI Prompt:
+      position:
+        x: -760
+        "y": -90
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: -900
+        "y": 0
+      size:
+        height: 108
+        width: 400
+      theme: "light-green"
+      content: |-
+        Create `BARISTA_REVIEWS_PROCESSED_OPENAI` by processing the unstructured text using OpenAI.
+        This may take several minutes to run, depending on your settings.
+    "2":
+      position:
+        x: -900
+        "y": -210
+      size:
+        height: 88
+        width: 400
+      theme: "light-red"
+      content: "You must create a [Secret](https://docs.matillion.com/data-productivity-cloud/administration/docs/secrets-overview/)\
+        \ named `OpenAI-Key` which stores your OpenAI key securely"

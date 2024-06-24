@@ -1,0 +1,112 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    stg_salesforce_title:
+      type: "table-input"
+      parameters:
+        componentName: "stg_salesforce_title"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_salesforce_title"
+        columnNames:
+        - "Title"
+        timeOffset:
+    Calculator:
+      type: "calculator"
+      sources:
+      - "stg_salesforce_title"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "No"
+        calculations:
+        - - "NULLIF(\"Title\", '')"
+          - "Title"
+    Filter:
+      type: "filter"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "Filter"
+        filterConditions:
+        - - "Title"
+          - "Not"
+          - "Null"
+          - ""
+        combineCondition: "And"
+    Aggregate:
+      type: "aggregate"
+      sources:
+      - "Filter"
+      parameters:
+        componentName: "Aggregate"
+        groupings:
+        - "Title"
+        aggregations:
+        - - "Title"
+          - "Count"
+        groupingType: "Group By"
+    Rename:
+      type: "rename"
+      sources:
+      - "Aggregate"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "Title"
+          - "Title"
+        includeInputColumns: "No"
+    Rewrite tmp_distinct_job_title:
+      type: "rewrite-table"
+      sources:
+      - "Rename"
+      parameters:
+        componentName: "Rewrite tmp_distinct_job_title"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "tmp_distinct_job_title"
+        orderBy:
+design:
+  components:
+    stg_salesforce_title:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Calculator:
+      position:
+        x: 120
+        "y": 0
+      tempMetlId: 2
+    Filter:
+      position:
+        x: 240
+        "y": 0
+      tempMetlId: 3
+    Aggregate:
+      position:
+        x: 360
+        "y": 0
+      tempMetlId: 4
+    Rename:
+      position:
+        x: 480
+        "y": 0
+      tempMetlId: 5
+    Rewrite tmp_distinct_job_title:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 6
+  notes:
+    "1":
+      position:
+        x: 130
+        "y": -150
+      size:
+        height: 108
+        width: 410
+      theme: "white"
+      content: "Create `tmp_distinct_job_title` containing the unique job titles that\
+        \ are not null or blank"

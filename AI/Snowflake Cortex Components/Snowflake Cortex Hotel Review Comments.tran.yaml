@@ -1,0 +1,258 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Cortex Translate:
+      type: "cortex-translate"
+      sources:
+      - "Review comments"
+      parameters:
+        componentName: "Cortex Translate"
+        columns:
+        - - "COMMENT"
+          - "French"
+          - "English"
+        includeInputColumns: "Yes"
+    Cortex Summarize:
+      type: "cortex-summarize"
+      sources:
+      - "Cortex Translate"
+      parameters:
+        componentName: "Cortex Summarize"
+        columns:
+        - "en_COMMENT"
+        includeInputColumns: "Yes"
+    Cortex Sentiment:
+      type: "cortex-sentiment"
+      sources:
+      - "Cortex Translate"
+      parameters:
+        componentName: "Cortex Sentiment"
+        columns:
+        - "en_COMMENT"
+        includeInputColumns: "Yes"
+    Negative Reviews:
+      type: "filter"
+      sources:
+      - "Cortex Sentiment"
+      parameters:
+        componentName: "Negative Reviews"
+        filterConditions:
+        - - "sentiment_en_COMMENT"
+          - "Is"
+          - "Less than"
+          - "-0.5"
+        combineCondition: "And"
+    Cortex Extract Answer:
+      type: "cortex-extract-answer"
+      sources:
+      - "Negative Reviews"
+      parameters:
+        componentName: "Cortex Extract Answer"
+        columns:
+        - - "en_COMMENT"
+          - "What did the guest especially dislike?"
+          - "comment"
+        includeInputColumns: "Yes"
+    Cortex Completions:
+      type: "cortex-completions"
+      sources:
+      - "Negative Reviews"
+      parameters:
+        componentName: "Cortex Completions"
+        model: "mistral-large"
+        systemPrompt: "You are a hotel manager dealing with complaints"
+        userPrompt: "Write an apology to the guest based on their comment"
+        inputs:
+        - - "COMMENT"
+          - "comment"
+        temperature:
+        topP:
+        maxTokens:
+        includeInputColumns: "Yes"
+    Extract Nested Data:
+      type: "extract-nested-data-sf"
+      sources:
+      - "Cortex Completions"
+      parameters:
+        componentName: "Extract Nested Data"
+        includeInputColumns: "No"
+        columns:
+        - name: "created"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "created"
+          isArray: "false"
+          include: "false"
+        - name: "usage"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "usage"
+          isArray: "false"
+          include: "false"
+          childElements:
+          - name: "total_tokens"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "total_tokens"
+            isArray: "false"
+            include: "true"
+          - name: "prompt_tokens"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "prompt_tokens"
+            isArray: "false"
+            include: "true"
+          - name: "completion_tokens"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "completion_tokens"
+            isArray: "false"
+            include: "true"
+        - name: "model"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "model"
+          isArray: "false"
+          include: "false"
+        - name: "choices"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "choices"
+          isArray: "true"
+          include: "false"
+          childElements:
+          - name: "choices-element"
+            datatype: "VARIANT"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "choices-element"
+            isArray: "false"
+            include: "false"
+            childElements:
+            - name: "messages"
+              datatype: "VARCHAR"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "completion_result"
+              aliasName: "messages"
+              isArray: "false"
+              include: "true"
+        outerJoin: "No"
+        inputAlias: "i"
+        arrayPrefix: "f"
+        castingMethod: "Fail on invalid data"
+        caseColumnAliasNames: "No"
+    Review comments:
+      type: "sql"
+      parameters:
+        componentName: "Review comments"
+        query: "SELECT 0 AS ID, CURRENT_DATE AS review_date, '' AS email, '' AS comment\
+          \ WHERE 1=2\r\nUNION ALL SELECT 1, CURRENT_DATE, 'example1@gmail.com', 'Lors\
+          \ de mon récent séjour à l''hôtel Les Étoiles, j''ai été véritablement enchanté\
+          \ par l''expérience offerte. L''accueil chaleureux et le personnel attentionné\
+          \ ont immédiatement mis en confiance et confort. Mais ce qui a vraiment\
+          \ marqué mon séjour, c''était la qualité exceptionnelle de la nourriture.\
+          \ Le restaurant de l''hôtel propose une cuisine raffinée, alliant traditions\
+          \ locales et touches modernes. Chaque plat était un délice pour les papilles,\
+          \ préparé à la perfection et présenté de manière exquise. En plus de la\
+          \ gastronomie, le cadre de l''hôtel est absolument magnifique. Situé dans\
+          \ une région pittoresque, les vues sur les montagnes environnantes et les\
+          \ paysages verdoyants étaient à couper le souffle. C''était le parfait é\
+          quilibre entre luxe et nature, offrant des moments de tranquillité et de\
+          \ beauté pure. Je recommande vivement cet hôtel pour ceux qui cherchent\
+          \ à échapper au quotidien et à se régaler dans un cadre exceptionnel.'\r\
+          \nUNION ALL SELECT 2, CURRENT_DATE, 'example2@gmail.com', 'Ma récente expé\
+          rience dans cet hôtel a été assez décevante. En tant que visiteur, je m''attendais\
+          \ à un séjour confortable, mais j''ai été confronté à plusieurs difficulté\
+          s d''accès qui ont rendu mon passage moins agréable. Premièrement, l''ascenseur\
+          \ était hors service pendant toute la durée de mon séjour. Cela m''a obligé\
+          \ à utiliser les escaliers à de multiples reprises, ce qui était particuliè\
+          rement épuisant après de longues journées de visite. De plus, l''hôtel compte\
+          \ de nombreux escaliers, y compris des marches inégales à plusieurs endroits,\
+          \ ce qui rendait l''accès très compliqué, surtout pour ceux qui pourraient\
+          \ avoir des problèmes de mobilité. Aucune alternative pratique n''était\
+          \ proposée et cela a sérieusement affecté ma perception de l''établissement.\
+          \ En bref, bien que l''emplacement de l''hôtel soit avantageux, les problè\
+          mes d''accès ont grandement nui à mon expérience. Je ne recommanderais pas\
+          \ cet hôtel à ceux qui recherchent un séjour sans tracas.'\r\nUNION ALL\
+          \ SELECT 3, CURRENT_DATE, 'example3@gmail.com', 'Lors de notre séjour à\
+          \ l''Hôtel Bellevue, nous avons trouvé l''expérience globalement moyenne.\
+          \ La localisation de l''hôtel est pratique, non loin du centre-ville, ce\
+          \ qui était appréciable cependant rien d''extraordinaire n''est à signaler.\
+          \ La chambre était propre et fonctionnelle mais assez basique, sans charme\
+          \ particulier. Le personnel était professionnel, bien que nous n''ayons\
+          \ pas ressenti une chaleur ou une attention particulière de leur part. Quant\
+          \ aux services, le Wi-Fi gratuit était fonctionnel, ce qui était utile pour\
+          \ planifier nos activités du jour. Le petit déjeuner offert était correct,\
+          \ mais le choix était assez limité et rien ne sortait du lot. Pour résumer,\
+          \ notre séjour à l''Hôtel Bellevue était sans encombre mais également sans\
+          \ éclat. C’est un choix adéquat pour ceux qui cherchent un endroit juste\
+          \ pour dormir sans attendre de luxes ou de petits extras.'\r\n"
+design:
+  components:
+    Cortex Translate:
+      position:
+        x: 130
+        "y": 0
+      tempMetlId: 2
+    Cortex Summarize:
+      position:
+        x: 270
+        "y": 0
+      tempMetlId: 3
+    Cortex Sentiment:
+      position:
+        x: 270
+        "y": 110
+      tempMetlId: 4
+    Negative Reviews:
+      position:
+        x: 400
+        "y": 110
+      tempMetlId: 5
+    Cortex Extract Answer:
+      position:
+        x: 520
+        "y": 110
+      tempMetlId: 6
+    Cortex Completions:
+      position:
+        x: 520
+        "y": 240
+      tempMetlId: 7
+    Extract Nested Data:
+      position:
+        x: 660
+        "y": 240
+      tempMetlId: 8
+    Review comments:
+      position:
+        x: -20
+        "y": 0
+      tempMetlId: 9
+  notes:
+    "1":
+      position:
+        x: -80
+        "y": 140
+      size:
+        height: 118
+        width: 240
+      theme: "white"
+      content: "Use the `Sample Data` tab on all these components to view the data"

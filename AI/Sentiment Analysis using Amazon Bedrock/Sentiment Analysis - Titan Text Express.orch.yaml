@@ -1,0 +1,92 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Sentiment Analysis - Acquire Review Data"
+      parameters:
+        componentName: "Start"
+    Run Sentiment Analysis - Acquire Review Data:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Run Sentiment Analysis with Titan Text Express via Amazon Bedrock"
+      parameters:
+        componentName: "Run Sentiment Analysis - Acquire Review Data"
+        transformationJob: "Sentiment Analysis - Acquire Review Data"
+        setScalarVariables:
+        setGridVariables:
+    Run Sentiment Analysis with Titan Text Express via Amazon Bedrock:
+      type: "aws-ai-prompt"
+      parameters:
+        componentName: "Run Sentiment Analysis with Titan Text Express via Amazon\
+          \ Bedrock"
+        aws:
+          region: "us-east-1"
+          modelCategory: "Amazon"
+          amazon:
+            model: "amazon.titan-text-express-v1"
+            temperature: "0.5"
+            topP: "0.9"
+            maxTokens: "512"
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "stg_sample_reviews"
+            keyColumn: "id"
+            limit: "1000"
+        promptContext:
+          userContext: ""
+          inputs:
+          - - "review"
+            - "Review"
+            - "Text"
+          outputFormat: "JSON"
+          outputs:
+          - - "ai_score"
+            - "Your job is to analyze online product reviews.\r\nProvide a numeric\
+              \ rating that reflects the overall sentiment of the review.\r\nThe rating\
+              \ should be a single number between 1 and 5, where 1 represents the\
+              \ most negative sentiment and 5 represents the most positive sentiment.\r\
+              \nRespond with only your numeric rating. Do not include any justification\
+              \ of the rating. Do not use the word 'rating'."
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "stg_sample_reviews_genai"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+design:
+  components:
+    Start:
+      position:
+        x: -160
+        "y": 0
+      tempMetlId: 1
+    Run Sentiment Analysis - Acquire Review Data:
+      position:
+        x: -10
+        "y": 0
+      tempMetlId: 3
+    Run Sentiment Analysis with Titan Text Express via Amazon Bedrock:
+      position:
+        x: 140
+        "y": 0
+      tempMetlId: 4
+  notes:
+    "1":
+      position:
+        x: -190
+        "y": -130
+      size:
+        height: 98
+        width: 420
+      theme: "white"
+      content: "Perform sentiment analysis to assess a score rating based only on\
+        \ product review comments"

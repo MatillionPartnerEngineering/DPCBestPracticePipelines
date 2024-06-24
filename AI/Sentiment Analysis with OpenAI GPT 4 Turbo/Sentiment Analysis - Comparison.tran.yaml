@@ -1,0 +1,115 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    stg_sample_reviews:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sample_reviews"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sample_reviews"
+        columnNames:
+        - "id"
+        - "stars"
+        - "product"
+        - "review"
+        timeOffset:
+    stg_sample_reviews_gpt_4_turbo:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sample_reviews_gpt_4_turbo"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sample_reviews_gpt_4_turbo"
+        columnNames:
+        - "id"
+        - "DATA"
+        timeOffset:
+    Flatten Variant:
+      type: "flatten-variant"
+      sources:
+      - "stg_sample_reviews_gpt_4_turbo"
+      parameters:
+        componentName: "Flatten Variant"
+        includeInputColumns: "Yes"
+        columnMapping:
+        - - "DATA"
+          - "rating"
+          - "NUMBER"
+          - "ai_rating"
+        columnFlattens:
+    Join:
+      type: "join"
+      sources:
+      - "Flatten Variant"
+      - "stg_sample_reviews"
+      parameters:
+        componentName: "Join"
+        mainTable: "stg_sample_reviews"
+        mainTableAlias: "r"
+        joins:
+        - - "Flatten Variant"
+          - "ai"
+          - "Left"
+        joinExpressions:
+        - - "\"ai\".\"id\" = \"r\".\"id\""
+          - "r_Left_ai"
+        columnMappings:
+        - - "r.id"
+          - "r_id"
+        - - "r.stars"
+          - "stars"
+        - - "r.product"
+          - "product"
+        - - "r.review"
+          - "review"
+        - - "ai.ai_rating"
+          - "ai_rating"
+    Comparison:
+      type: "calculator"
+      sources:
+      - "Join"
+      parameters:
+        componentName: "Comparison"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "ABS(\"stars\" - \"ai_rating\")"
+          - "difference"
+design:
+  components:
+    stg_sample_reviews:
+      position:
+        x: 150
+        "y": 0
+      tempMetlId: 1
+    stg_sample_reviews_gpt_4_turbo:
+      position:
+        x: 150
+        "y": 130
+      tempMetlId: 2
+    Flatten Variant:
+      position:
+        x: 310
+        "y": 130
+      tempMetlId: 3
+    Join:
+      position:
+        x: 460
+        "y": 70
+      tempMetlId: 4
+    Comparison:
+      position:
+        x: 600
+        "y": 70
+      tempMetlId: 5
+  notes:
+    "1":
+      position:
+        x: 350
+        "y": -70
+      size:
+        height: 88
+        width: 300
+      theme: "white"
+      content: "Compare the original star rating against the AI-generated rating"

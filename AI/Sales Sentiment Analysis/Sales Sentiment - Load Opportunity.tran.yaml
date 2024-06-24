@@ -1,0 +1,97 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    stg_sales_sentiment_opportunity:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sales_sentiment_opportunity"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sales_sentiment_opportunity"
+        columnNames:
+        - "prospect_id"
+        - "data"
+        timeOffset:
+    Calculator:
+      type: "calculator"
+      sources:
+      - "stg_sales_sentiment_opportunity"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "No"
+        calculations:
+        - - "MD5(\"prospect_id\")"
+          - "prospect_sk"
+        - - "TO_CHAR(\"prospect_id\") || '-' ||\r\nTO_CHAR(ROW_NUMBER() OVER (PARTITION\
+            \ BY \"prospect_id\" ORDER BY \"prospect_id\"))\r\n"
+          - "id"
+        - - "MD5(TO_CHAR(\"prospect_id\") || '-' ||\r\nTO_CHAR(ROW_NUMBER() OVER (PARTITION\
+            \ BY \"prospect_id\" ORDER BY \"prospect_id\"))\r\n)"
+          - "sk"
+        - - "\"data\""
+          - "text"
+        - - "CURRENT_TIMESTAMP"
+          - "load_timestamp"
+        - - "'Operations'"
+          - "record_source"
+    s_prospect_opportunity:
+      type: "table-update"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "s_prospect_opportunity"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "s_prospect_opportunity"
+        targetAlias: "target"
+        sourceAlias: "input"
+        joinExpression:
+        - - "\"input\".\"sk\" = \"target\".\"sk\""
+          - "Case"
+        whenMatched:
+        - - "true"
+          - "Update"
+        updateMapping:
+        - - "prospect_sk"
+          - "prospect_sk"
+        - - "id"
+          - "id"
+        - - "text"
+          - "text"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+        includeNotMatched: "Yes"
+        insertMapping:
+        - - "sk"
+          - "sk"
+        - - "prospect_sk"
+          - "prospect_sk"
+        - - "id"
+          - "id"
+        - - "text"
+          - "text"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+design:
+  components:
+    stg_sales_sentiment_opportunity:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Calculator:
+      position:
+        x: 160
+        "y": 0
+      tempMetlId: 2
+    s_prospect_opportunity:
+      position:
+        x: 320
+        "y": 0
+      tempMetlId: 3

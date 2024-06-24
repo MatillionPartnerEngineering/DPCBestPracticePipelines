@@ -1,0 +1,102 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    tmp_job_title_openai:
+      type: "table-input"
+      parameters:
+        componentName: "tmp_job_title_openai"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "tmp_job_title_openai"
+        columnNames:
+        - "Title"
+        - "DATA"
+        timeOffset:
+    Extract Nested Data:
+      type: "extract-nested-data-sf"
+      sources:
+      - "tmp_job_title_openai"
+      parameters:
+        componentName: "Extract Nested Data"
+        includeInputColumns: "Yes"
+        columns:
+        - name: "job_classification"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "DATA"
+          aliasName: "job_classification"
+          isArray: "false"
+          include: "true"
+        - name: "standardized_job_title"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "DATA"
+          aliasName: "standardized_job_title"
+          isArray: "false"
+          include: "true"
+        outerJoin: "No"
+        inputAlias: "i"
+        arrayPrefix: "f"
+        castingMethod: "Fail on invalid data"
+        caseColumnAliasNames: "No"
+    Rename:
+      type: "rename"
+      sources:
+      - "Extract Nested Data"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "Title"
+          - "Title"
+        - - "job_classification"
+          - "job_classification"
+        - - "standardized_job_title"
+          - "standardized_job_title"
+        includeInputColumns: "No"
+    Rewrite Table:
+      type: "rewrite-table"
+      sources:
+      - "Rename"
+      parameters:
+        componentName: "Rewrite Table"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "job_title_ref"
+        orderBy:
+design:
+  components:
+    tmp_job_title_openai:
+      position:
+        x: -60
+        "y": 0
+      tempMetlId: 1
+    Extract Nested Data:
+      position:
+        x: 120
+        "y": 0
+      tempMetlId: 2
+    Rename:
+      position:
+        x: 260
+        "y": 0
+      tempMetlId: 3
+    Rewrite Table:
+      position:
+        x: 410
+        "y": 0
+      tempMetlId: 4
+  notes:
+    "1":
+      position:
+        x: 0
+        "y": -160
+      size:
+        height: 108
+        width: 330
+      theme: "white"
+      content: "Read from `tmp_job_title_openai`, extract the classifications, and\
+        \ save the results to `job_title_ref`"

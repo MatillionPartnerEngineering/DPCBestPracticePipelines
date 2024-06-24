@@ -1,0 +1,98 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "OpenAI Prompt"
+      parameters:
+        componentName: "Start"
+    OpenAI Prompt:
+      type: "openai-ai-prompt"
+      parameters:
+        componentName: "OpenAI Prompt"
+        openAI:
+          model: "gpt-4"
+          apiKey: "OpenAI-Key"
+          temperature: "1"
+          topP: "1"
+          "n": "1"
+          maxTokens:
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "tmp_distinct_job_title"
+            keyColumn: "Title"
+            limit: ""
+        promptContext:
+          userContext: "You are responsible for interpreting a job title given as\
+            \ input. Analyze the core essence, responsibilities, and lexicon associated\
+            \ with the job title. Remember that a job title may have different regional\
+            \ nuances, industry-specific terminologies, and seniority level. It may\
+            \ be provided in a language other than English."
+          inputs:
+          - - "Title"
+            - "title"
+          outputFormat: "JSON"
+          outputs:
+          - - "standardized_job_title"
+            - "Your task is to standardize the supplied job title into one from this\
+              \ list: \"Data analyst\", \"Data scientist\", \"Data architect\", \"\
+              Data engineer\", \"Database administrator\", \"Database designer\",\
+              \ \"CIO\", \"CTO\", \"IT director\", \"Development manager\", \"Data\
+              \ processing manager\", \"Security manager\".\r\n\r\nYour aim is to\
+              \ instill standardization and accuracy. You must respond with the most\
+              \ closely matching job title from your designated list. If a job title\
+              \ doesn't have a good match, you're authorized to respond with \"Other\"\
+              .\r\n"
+          - - "job_classification"
+            - "You will be classifying a job title into two categories: 'IC' (Individual\
+              \ Contributor) or 'Manager'. You'll receive input in the form of a job\
+              \ title, and your task is to analyze this input and determine the likely\
+              \ category. Keep in mind, though, that the job title may not explicitly\
+              \ include the words 'Manager' or 'IC'. Instead, it might hint at the\
+              \ nature of the job. For instance, job titles such as 'Software Developer'\
+              \ or 'Graphic Designer' often represent individual contributors, while\
+              \ 'Project Lead' or 'Operations Supervisor' may well signify managerial\
+              \ roles. The potential ambiguity calls for your creative and contextual\
+              \ interpretations. Despite the possible complexity, you're still required\
+              \ to provide only one output: either 'IC' or 'Manager'."
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "tmp_job_title_openai"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    OpenAI Prompt:
+      position:
+        x: 130
+        "y": 0
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: -110
+        "y": -240
+      size:
+        height: 208
+        width: 420
+      theme: "white"
+      content: |-
+        Classify the job titles in `tmp_distinct_job_title`
+        using prompt techniques with a large language model, including zero-shot learning and few-shot learning.
+
+        Save the results to `tmp_job_title_openai`
+
+        You will need to replace `OpenAI-Key` with whatever your OpenAI API key secret is named.

@@ -1,0 +1,182 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    stg_sales_sentiment_salesloft:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sales_sentiment_salesloft"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sales_sentiment_salesloft"
+        columnNames:
+        - "prospect_id"
+        - "data"
+        timeOffset:
+    Extract Nested Data:
+      type: "extract-nested-data-sf"
+      sources:
+      - "stg_sales_sentiment_salesloft"
+      parameters:
+        componentName: "Extract Nested Data"
+        includeInputColumns: "Yes"
+        columns:
+        - name: "jobName"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "jobName"
+          isArray: "false"
+          include: "false"
+        - name: "accountId"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "accountId"
+          isArray: "false"
+          include: "false"
+        - name: "results"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "results"
+          isArray: "false"
+          include: "false"
+          childElements:
+          - name: "transcripts"
+            datatype: "VARIANT"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "transcripts"
+            isArray: "true"
+            include: "false"
+            childElements:
+            - name: "transcripts-element"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "data"
+              aliasName: "transcripts-element"
+              isArray: "false"
+              include: "false"
+              childElements:
+              - name: "transcript"
+                datatype: "VARCHAR"
+                size: "0"
+                decimalPlaces: "0"
+                columnName: "data"
+                aliasName: "transcript"
+                isArray: "false"
+                include: "true"
+          - name: "items"
+            datatype: "VARIANT"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "items"
+            isArray: "false"
+            include: "false"
+        - name: "status"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "status"
+          isArray: "false"
+          include: "false"
+        outerJoin: "No"
+        inputAlias: "i"
+        arrayPrefix: "f"
+        castingMethod: "Fail on invalid data"
+        caseColumnAliasNames: "No"
+    Calculator:
+      type: "calculator"
+      sources:
+      - "Extract Nested Data"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "No"
+        calculations:
+        - - "MD5(\"prospect_id\")"
+          - "prospect_sk"
+        - - "TO_CHAR(\"prospect_id\") || '-' ||\r\nTO_CHAR(ROW_NUMBER() OVER (PARTITION\
+            \ BY \"prospect_id\" ORDER BY \"prospect_id\"))\r\n"
+          - "id"
+        - - "MD5(TO_CHAR(\"prospect_id\") || '-' ||\r\nTO_CHAR(ROW_NUMBER() OVER (PARTITION\
+            \ BY \"prospect_id\" ORDER BY \"prospect_id\"))\r\n)"
+          - "sk"
+        - - "\"transcript\""
+          - "text"
+        - - "CURRENT_TIMESTAMP"
+          - "load_timestamp"
+        - - "'Operations'"
+          - "record_source"
+    s_prospect_salesloft:
+      type: "table-update"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "s_prospect_salesloft"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "s_prospect_salesloft"
+        targetAlias: "target"
+        sourceAlias: "input"
+        joinExpression:
+        - - "\"input\".\"sk\" = \"target\".\"sk\""
+          - "Case"
+        whenMatched:
+        - - "true"
+          - "Update"
+        updateMapping:
+        - - "prospect_sk"
+          - "prospect_sk"
+        - - "id"
+          - "id"
+        - - "text"
+          - "text"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+        includeNotMatched: "Yes"
+        insertMapping:
+        - - "sk"
+          - "sk"
+        - - "prospect_sk"
+          - "prospect_sk"
+        - - "id"
+          - "id"
+        - - "text"
+          - "text"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+design:
+  components:
+    stg_sales_sentiment_salesloft:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Extract Nested Data:
+      position:
+        x: 160
+        "y": 0
+      tempMetlId: 2
+    Calculator:
+      position:
+        x: 310
+        "y": 0
+      tempMetlId: 3
+    s_prospect_salesloft:
+      position:
+        x: 450
+        "y": 0
+      tempMetlId: 4

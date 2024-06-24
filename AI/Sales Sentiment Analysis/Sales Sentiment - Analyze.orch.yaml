@@ -1,0 +1,78 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "OpenAI Prompt"
+      parameters:
+        componentName: "Start"
+    OpenAI Prompt:
+      type: "openai-ai-prompt"
+      parameters:
+        componentName: "OpenAI Prompt"
+        openAI:
+          model: "gpt-3.5-turbo"
+          apiKey: "OpenAI-Key"
+          temperature: "1"
+          topP: "1"
+          "n": "1"
+          maxTokens:
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "temp_prospect_statements"
+            keyColumn: "prospect_id"
+            limit: ""
+        promptContext:
+          userContext: "You are a sales manager who is analyzing text responses from\
+            \ prospects"
+          inputs:
+          - - "prospect_id"
+            - "prospect_id"
+          - - "text"
+            - "text"
+          outputFormat: "JSON"
+          outputs:
+          - - "concern"
+            - "In one word, what is the main concern expressed in the text?"
+          - - "sentiment"
+            - "Give a score from 1 to 10 indicating how happy the text indicates the\
+              \ prospect is, where 1 is unhappy or angry, and 10 is happy"
+          - - "next_step"
+            - "Give a short recommendation based on the text that will help the prospect\
+              \ decide to buy our product"
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "temp_prospect_statements_openai"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    OpenAI Prompt:
+      position:
+        x: 120
+        "y": 0
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: -60
+        "y": -150
+      size:
+        height: 108
+        width: 370
+      theme: "yellow"
+      content: "Save your own OpenAI API key as a secret named `OpenAI-Key` before\
+        \ running this pipeline"

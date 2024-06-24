@@ -1,0 +1,90 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Sentiment Analysis - Acquire Review Data"
+      parameters:
+        componentName: "Start"
+    Run Sentiment Analysis with OpenAI gpt-4o:
+      type: "openai-ai-prompt"
+      parameters:
+        componentName: "Run Sentiment Analysis with OpenAI gpt-4o"
+        openAI:
+          model: "[Custom]"
+          apiKey: "OpenAI-Key"
+          temperature: "1"
+          topP: "1"
+          "n": "1"
+          maxTokens:
+          userProvidedModel: "gpt-4o"
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "stg_sample_reviews"
+            keyColumn: "id"
+            limit: "1000"
+        promptContext:
+          userContext: "Your job is to analyze the following online product review\
+            \ text."
+          inputs:
+          - - "review"
+            - ""
+          outputFormat: "JSON"
+          outputs:
+          - - "rating"
+            - "Provide a star rating that reflects the overall sentiment of the review.\r\
+              \nThe star rating should be a single number between 1 and 5, where 1\
+              \ represents the most negative sentiment and 5 represents the most positive\
+              \ sentiment.\r\nRespond with the numeric rating only. Do not include\
+              \ any justification of the rating."
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "stg_sample_reviews_gpt_4o"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+    Run Sentiment Analysis - Acquire Review Data:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Run Sentiment Analysis with OpenAI gpt-4o"
+      parameters:
+        componentName: "Run Sentiment Analysis - Acquire Review Data"
+        transformationJob: "Sentiment Analysis - Acquire Review Data"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: -170
+        "y": 0
+      tempMetlId: 1
+    Run Sentiment Analysis with OpenAI gpt-4o:
+      position:
+        x: 160
+        "y": 0
+      tempMetlId: 2
+    Run Sentiment Analysis - Acquire Review Data:
+      position:
+        x: -10
+        "y": 0
+      tempMetlId: 3
+  notes:
+    "1":
+      position:
+        x: -190
+        "y": -130
+      size:
+        height: 98
+        width: 420
+      theme: "white"
+      content: "Perform sentiment analysis to assess a score rating based only on\
+        \ a product review comment"

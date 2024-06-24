@@ -1,0 +1,92 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Sentiment Analysis - Acquire Review Data"
+      parameters:
+        componentName: "Start"
+    Run Sentiment Analysis - Acquire Review Data:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Run Sentiment Analysis with Mistral 7B Instruct via Amazon Bedrock"
+      parameters:
+        componentName: "Run Sentiment Analysis - Acquire Review Data"
+        transformationJob: "Sentiment Analysis - Acquire Review Data"
+        setScalarVariables:
+        setGridVariables:
+    Run Sentiment Analysis with Mistral 7B Instruct via Amazon Bedrock:
+      type: "aws-ai-prompt"
+      parameters:
+        componentName: "Run Sentiment Analysis with Mistral 7B Instruct via Amazon\
+          \ Bedrock"
+        aws:
+          region: "us-east-1"
+          modelCategory: "Mistral"
+          mistral:
+            model: "mistral.mistral-7b-instruct-v0:2"
+            temperature: "0.3"
+            topP: "0.9"
+            maxTokens: "512"
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "stg_sample_reviews"
+            keyColumn: "id"
+            limit: "1000"
+        promptContext:
+          userContext: ""
+          inputs:
+          - - "review"
+            - "Text"
+            - "Text"
+          outputFormat: "JSON"
+          outputs:
+          - - "ai_score"
+            - "Analyze the given text from an online review and determine the sentiment\
+              \ score. Return a single number between 1 and 5, with 1 being the most\
+              \ negative sentiment and 5 being the most positive sentiment. No further\
+              \ explanation or justification is required.\r\nRespond with a single\
+              \ number only. Do not include any notes, justification, explanation\
+              \ or confidence level, just the number."
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "stg_sample_reviews_genai"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+design:
+  components:
+    Start:
+      position:
+        x: -170
+        "y": 0
+      tempMetlId: 1
+    Run Sentiment Analysis - Acquire Review Data:
+      position:
+        x: -10
+        "y": 0
+      tempMetlId: 3
+    Run Sentiment Analysis with Mistral 7B Instruct via Amazon Bedrock:
+      position:
+        x: 140
+        "y": 0
+      tempMetlId: 4
+  notes:
+    "1":
+      position:
+        x: -190
+        "y": -130
+      size:
+        height: 98
+        width: 420
+      theme: "white"
+      content: "Perform sentiment analysis to assess a score rating based only on\
+        \ product review comments"
