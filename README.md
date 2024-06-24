@@ -43,12 +43,10 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
   - [Snowflake Cortex Components](https://exchange.matillion.com/data-productivity-cloud/pipeline/snowflake-cortex-components/)
     - Use Snowflake Cortex generative AI capabilities in a Data Productivity Cloud transformation pipeline. The example is from a travel company, which collects hotel stay reviews. In the screenshot below, they arrive in the Review comments component.
   - [Unstructured text classification - Job Titles](https://exchange.matillion.com/data-productivity-cloud/pipeline/unstructured-text-classification-job-titles/)
-    - Classify job titles using zero-shot and few-shot learning with a Large Language Model (LLM) in a Data Productivity Cloud pipeline.
-
-These pipelines extract job titles from Salesforce, and run them through an LLM to
+    - Classify job titles using zero-shot and few-shot learning with a Large Language Model (LLM) in a Data Productivity Cloud pipeline. These pipelines extract job titles from Salesforce, and run them through an LLM to:
       - Standardize them into a defined set of job titles
       - Categorize them as ‘IC’ (Individual Contributor) or ‘Manager’
-The results are saved into a lookup table for quick reference in future.
+    - The results are saved into a lookup table for quick reference in future.
 - Connectors
   - SalesForce
 - Data Engineering
