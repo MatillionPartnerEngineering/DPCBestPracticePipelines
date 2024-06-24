@@ -49,5 +49,19 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
     - The results are saved into a lookup table for quick reference in future.
 - Connectors
   - SalesForce
+    - [Account First Opportunity](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-account-first-opportunity/)
+    - [Account Most Recent Opportunity](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-account-first-opportunity/)
+    - [Accounts With Account Teams](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-account-first-opportunity/)
+    - [Accounts With Contacts](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-accounts-with-contacts/)
+    - [Accounts With Primary Contact](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs_sf_accounts_with_primary_contact/)
+    - [Campaigns with Contacts or Leads](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-campaigns-with-contacts-or-leads/)
+    - [Contacts with Cases](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-contacts-with-cases/)
+    - [Opportunities With Account](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-opportunities-with-account/)
+    - [Opportunities With Primary Campaign Source](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-opportunities-with-primary-campaign-source/)
+    - [Opportunity Roles And Contacts All](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-opportunity-roles-and-contacts-all/)
+    - [Opportunity Roles And Contacts All Primary](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-opportunity-roles-and-contacts-all-primary/)
+    - [Opportunity Roles And Contacts One Primary](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-opportunity-roles-and-contacts-one-primary/)
+    - [Unite Lead And Contact](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-unite-lead-and-contact/)
+    - [Unite Task And Event](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-unite-task-and-event/)
 - Data Engineering
 - Devops
