@@ -14,6 +14,8 @@ Use this repository to discover and introduce Matillion Best Practices within yo
 
 ## Best Practice Pipelines Library
 - AI
+  - [Barista Reviews](https://exchange.matillion.com/data-productivity-cloud/pipeline/barista-demo-ai-unstructured/)
+    - Use a Large Language Model (LLM) to process unstructured data with this set of Data Productivity Cloud pipelines. The pipelines demonstrate how to use the Data Productivity Cloud AI Prompt components to convert unstructured text into structured data, to make it ready for analysis. The sample data is a set of imaginary barista coffee reviews.   
 - Connectors
   - SalesForce
 - Data Engineering
