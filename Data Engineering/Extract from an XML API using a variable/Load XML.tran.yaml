@@ -1,0 +1,51 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Rewrite stg_xml:
+      type: "rewrite-table"
+      sources:
+      - "Response XML"
+      parameters:
+        componentName: "Rewrite stg_xml"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_xml"
+        orderBy:
+    Response XML:
+      type: "sql"
+      parameters:
+        componentName: "Response XML"
+        query: "SELECT PARSE_XML('${jv_xml}') AS \"xml\""
+  variables:
+    jv_xml:
+      metadata:
+        type: "TEXT"
+        description: "The XML"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "<xml/>"
+design:
+  components:
+    Rewrite stg_xml:
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+    Response XML:
+      position:
+        x: 10
+        "y": 0
+      tempMetlId: 4
+  notes:
+    "1":
+      position:
+        x: -40
+        "y": -130
+      size:
+        height: 238
+        width: 340
+      theme: "white"
+      content: "Save the contents of the variable `jv_xml` as an `OBJECT` column into\
+        \ a new database table named `stg_xml`"

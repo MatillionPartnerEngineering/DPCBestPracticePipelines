@@ -1,0 +1,185 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Salesforce Account (full bronze)"
+      parameters:
+        componentName: "Start"
+    Salesforce Account (full bronze):
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Create sequence"
+      parameters:
+        componentName: "Salesforce Account (full bronze)"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Account"
+        dataSelection:
+        - "Id"
+        - "Name"
+        - "AnnualRevenue"
+        - "LastModifiedDate"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_account"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Run qs-full-load-salesforce-trans-to-silver:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Run qs-full-load-salesforce-trans-to-gold"
+      parameters:
+        componentName: "Run qs-full-load-salesforce-trans-to-silver"
+        transformationJob: "Full Load Strategy Medallion Schema/qs-full-load-salesforce-trans-to-silver"
+        setScalarVariables:
+        setGridVariables:
+    Run qs-full-load-salesforce-trans-to-gold:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run qs-full-load-salesforce-trans-to-gold"
+        transformationJob: "qs-full-load-salesforce-trans-to-gold"
+        setScalarVariables:
+        setGridVariables:
+    Create Silver ODS Table:
+      type: "create-table"
+      transitions:
+        success:
+        - "Run qs-full-load-salesforce-trans-to-silver"
+      parameters:
+        componentName: "Create Silver ODS Table"
+        createReplace: "Create if not exists"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "mtln_qs_sf_ods_account"
+        tableType: "Permanent"
+        columns:
+        - - "surrogate_key"
+          - "NUMBER"
+          - "12"
+          - "0"
+          - "\"mtln_qs_sf_ods_account_seq\".NEXTVAL"
+          - "Yes"
+          - "Yes"
+          - ""
+        - - "id"
+          - "VARCHAR"
+          - "32"
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "account_name"
+          - "VARCHAR"
+          - "1024"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "annual_revenue"
+          - "NUMBER"
+          - "20"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "last_modified_timestamp"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Create sequence:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Create Silver ODS Table"
+      parameters:
+        componentName: "Create sequence"
+        sqlScript: "CREATE SEQUENCE IF NOT EXISTS \"mtln_qs_sf_ods_account_seq\""
+  variables:
+    SalesforceOAuthName:
+      metadata:
+        type: "TEXT"
+        description: "Name of your Salesforce OAuth"
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "name-of-your-Salesforce-OAuth"
+design:
+  components:
+    Start:
+      position:
+        x: -140
+        "y": 0
+      tempMetlId: 1
+    Salesforce Account (full bronze):
+      position:
+        x: 10
+        "y": 0
+      tempMetlId: 2
+    Run qs-full-load-salesforce-trans-to-silver:
+      position:
+        x: 450
+        "y": 0
+      tempMetlId: 3
+    Run qs-full-load-salesforce-trans-to-gold:
+      position:
+        x: 630
+        "y": 0
+      tempMetlId: 4
+    Create Silver ODS Table:
+      position:
+        x: 300
+        "y": 0
+      tempMetlId: 5
+    Create sequence:
+      position:
+        x: 160
+        "y": 0
+      tempMetlId: 6
+  notes:
+    "1":
+      position:
+        x: -100
+        "y": -140
+      size:
+        height: 98
+        width: 320
+      theme: "light-red"
+      content: "Please set the default value of the `SalesforceOAuthName` pipeline\
+        \ variable before validating or running"
+    "2":
+      position:
+        x: -280
+        "y": -260
+      size:
+        height: 98
+        width: 340
+      theme: "light-green"
+      content: "Full load strategy medallion schema example for Snowflake"

@@ -1,0 +1,91 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Call the API"
+      parameters:
+        componentName: "Start"
+    Call the API:
+      type: "python-script"
+      transitions:
+        success:
+        - "Load XML"
+      parameters:
+        componentName: "Call the API"
+        script: |
+          import requests
+
+          print(jv_url)
+
+          url = jv_url
+
+          payload = {}
+          headers = {
+          'Content-Type': 'text/xml'
+          }
+
+          response = requests.request("GET", url, headers=headers, data=payload)
+
+          print("Response length: {0}".format(len(response.text)))
+
+          print(response.text)
+
+          context.updateVariable('prvt_xml', response.text)
+        interpreter: "Python 3"
+        timeout: "360"
+    Load XML:
+      type: "run-transformation"
+      parameters:
+        componentName: "Load XML"
+        transformationJob: "Load XML"
+        setScalarVariables:
+        - - "jv_xml"
+          - "${prvt_xml}"
+        setGridVariables:
+  variables:
+    jv_url:
+      metadata:
+        type: "TEXT"
+        description: "The URL to fetch"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "https://mocktarget.apigee.net/xml"
+    prvt_xml:
+      metadata:
+        type: "TEXT"
+        description: "Contains the XML"
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "<xml/>"
+design:
+  components:
+    Start:
+      position:
+        x: -110
+        "y": 10
+      tempMetlId: 1
+    Call the API:
+      position:
+        x: 80
+        "y": 10
+      tempMetlId: 2
+    Load XML:
+      position:
+        x: 260
+        "y": 10
+      tempMetlId: 3
+  notes:
+    "1":
+      position:
+        x: 0
+        "y": -80
+      size:
+        height: 178
+        width: 370
+      theme: "white"
+      content: "Call the API using Python, then run `Load XML` to insert the response\
+        \ data into a table"

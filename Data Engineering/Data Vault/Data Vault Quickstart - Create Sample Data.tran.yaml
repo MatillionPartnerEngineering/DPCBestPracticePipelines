@@ -1,0 +1,253 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Data Source for DV tables:
+      type: "fixed-flow"
+      parameters:
+        componentName: "Data Source for DV tables"
+        columns:
+        - - "ts"
+          - "TIMESTAMP"
+          - ""
+          - ""
+        - - "equipment"
+          - "VARCHAR"
+          - "64"
+          - ""
+        - - "temperature"
+          - "FLOAT"
+          - "8"
+          - "4"
+        values:
+        - - "2021-10-01 06:15:01.030"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7451"
+        - - "2021-10-01 06:15:02.090"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7491"
+        - - "2021-10-01 06:15:03.262"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7467"
+        - - "2021-10-01 06:15:04.356"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7214"
+        - - "2021-10-01 06:15:05.465"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.71"
+        - - "2021-10-01 06:15:06.576"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7513"
+        - - "2021-10-01 06:15:07.703"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7017"
+        - - "2021-10-01 06:15:08.784"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.688"
+        - - "2021-10-01 06:15:09.829"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7518"
+        - - "2021-10-01 06:15:10.990"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7399"
+        - - "2021-10-01 06:15:12.139"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.7411"
+        - - "2021-10-01 06:15:13.223"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.6975"
+        - - "2021-10-01 06:15:14.294"
+          - "M4FUI7fcnQiBs6Cg4RjztczHzrtecC7boW6oLSOa"
+          - "19.6819"
+    Rename for Equipment view:
+      type: "rename"
+      sources:
+      - "Data Source for DV tables"
+      parameters:
+        componentName: "Rename for Equipment view"
+        columnMapping:
+        - - "equipment"
+          - "equipment"
+        includeInputColumns: "No"
+    Distinct:
+      type: "distinct"
+      sources:
+      - "Rename for Equipment view"
+      parameters:
+        componentName: "Distinct"
+        columns:
+        - "equipment"
+    Calculator:
+      type: "calculator"
+      sources:
+      - "Distinct"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "No"
+        calculations:
+        - - "\"equipment\""
+          - "equipment_id"
+        - - "'Unknown'"
+          - "name"
+        - - "'normal' /* Have to hardcode this value because it is not in the data\
+            \ */"
+          - "fan_status"
+    v_hub_equipment_source view:
+      type: "create-view"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "v_hub_equipment_source view"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        viewName: "v_hub_equipment_source"
+        secureView: "No"
+        viewType: "Standard"
+    Rename for Event view:
+      type: "rename"
+      sources:
+      - "Data Source for DV tables"
+      parameters:
+        componentName: "Rename for Event view"
+        columnMapping:
+        - - "ts"
+          - "ts"
+        - - "equipment"
+          - "equipment_alias"
+        - - "equipment"
+          - "equipment_id"
+        - - "temperature"
+          - "temperature"
+        includeInputColumns: "No"
+    v_bubble_event_source view:
+      type: "create-view"
+      sources:
+      - "Rename for Event view"
+      parameters:
+        componentName: "v_bubble_event_source view"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        viewName: "v_bubble_event_source"
+        secureView: "No"
+        viewType: "Standard"
+    Calculator 2:
+      type: "calculator"
+      sources:
+      - "Rename"
+      parameters:
+        componentName: "Calculator 2"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "'Measured by'"
+          - "relationship"
+    Rename:
+      type: "rename"
+      sources:
+      - "Data Source for DV tables"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "ts"
+          - "ts"
+        - - "equipment"
+          - "equipment_alias"
+        - - "equipment"
+          - "equipment_id"
+        includeInputColumns: "No"
+    v_bubble_event_equipment_link view:
+      type: "create-view"
+      sources:
+      - "Calculator 2"
+      parameters:
+        componentName: "v_bubble_event_equipment_link view"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        viewName: "v_bubble_event_equipment_link"
+        secureView: "No"
+        viewType: "Standard"
+design:
+  components:
+    Data Source for DV tables:
+      position:
+        x: 30
+        "y": 20
+      tempMetlId: 1
+    Rename for Equipment view:
+      position:
+        x: 260
+        "y": -90
+      tempMetlId: 2
+    Distinct:
+      position:
+        x: 380
+        "y": -90
+      tempMetlId: 3
+    Calculator:
+      position:
+        x: 500
+        "y": -90
+      tempMetlId: 4
+    v_hub_equipment_source view:
+      position:
+        x: 620
+        "y": -90
+      tempMetlId: 5
+    Rename for Event view:
+      position:
+        x: 260
+        "y": 20
+      tempMetlId: 6
+    v_bubble_event_source view:
+      position:
+        x: 620
+        "y": 20
+      tempMetlId: 7
+    Calculator 2:
+      position:
+        x: 450
+        "y": 140
+      tempMetlId: 8
+    Rename:
+      position:
+        x: 260
+        "y": 140
+      tempMetlId: 9
+    v_bubble_event_equipment_link view:
+      position:
+        x: 620
+        "y": 140
+      tempMetlId: 10
+  notes:
+    "1":
+      position:
+        x: -130
+        "y": -190
+      size:
+        height: 308
+        width: 310
+      theme: "white"
+      content: |-
+        In a real implementation, the source data would be in a database table.
+
+        For example:
+
+        - a normalized (3NF) table
+        - a staging (ODS) table
+        - an externally managed table
+    "2":
+      position:
+        x: 740
+        "y": -90
+      size:
+        height: 288
+        width: 300
+      theme: "white"
+      content: |-
+        The same data source is being used for **two** Hub tables:
+
+        - v_hub_equipment_source - "dimension" level (1 record)
+        - v_bubble_event_source - "fact" level (13 records)
+
+        ... and one Link table:
+
+        - v_bubble_event_equipment_link (13 records)

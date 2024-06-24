@@ -1,0 +1,563 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Staging Metadata"
+      parameters:
+        componentName: "Start"
+    Staging Metadata:
+      type: "table-metadata-to-grid"
+      transitions:
+        success:
+        - "Metadata pass 1"
+      parameters:
+        componentName: "Staging Metadata"
+        database: "${jv_database}"
+        schema: "${jv_schema}"
+        gridVariable: "prvt_gv_viewcolumns"
+        gridVariableMapping:
+        - "Name"
+        targetTable: "${jv_staging_view_name}"
+    Metadata pass 1:
+      type: "python-script"
+      transitions:
+        success:
+        - "Get UX"
+      parameters:
+        componentName: "Metadata pass 1"
+        script: |
+          # Scalar variables
+          # **prvt_link_stub** Stub name for generated tables
+          # **prvt_fkddl** the DDL for the Link FK columns
+          # **prvt_uxcols** the unique column list for the link DDL
+          # **prvt_hashkey_dml** The SQL for the main hash key
+          #
+          # Grid variables
+          # **prvt_gv_hubcolumns** The columns in every Hub table which make up the unique key
+          # **prvt_gv_viewcolumns** The columns in the Staging View
+
+          # Display the column names in the staging view
+          vclist=""
+
+          for c in context.getGridVariable('prvt_gv_viewcolumns'):
+            vclist = vclist + "," + c[0]
+
+          print("Columns in source view: %s" % vclist[1:])
+
+          # Set prvt_link_stub and prvt_ux_query
+
+          link_stub = 'l'
+          ux_query = "SELECT 'x'::VARCHAR(128) AS hubname, 'x'::VARCHAR(1024) AS uxlist WHERE 1=2"
+
+          harr = [x[0].strip().strip('"') for x in context.getGridVariable('gv_hubs_to_link')]
+
+          for h in sorted(harr):
+            link_stub = link_stub + "_" + h
+            ux_query  = ux_query + "\nUNION ALL SELECT 'h_" + h + "' AS hub, REGEXP_SUBSTR(GET_DDL('TABLE', '\"" + jv_database + "\".\"" + jv_schema + "\".\"h_" + h + "\"'), 'constraint\\\\s+\\\\w+\\\\s+unique\\\\s+[(](.*)[)]', 1, 1, 'mi', 1)"
+
+          link_stub = link_stub[2:] + "_" + jv_link_suffix
+
+          print("Link table name  : l_%s" % link_stub)
+          print("Sat table name   : s_%s" % link_stub)
+          print("Error table name : e_%s" % link_stub)
+
+          print("Metadata query : %s" % ux_query)
+
+          context.updateVariable('prvt_link_stub', link_stub)
+          context.updateVariable('prvt_ux_query', ux_query)
+        interpreter: "Python 3"
+        timeout: "360"
+    Get UX:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Metadata pass 2"
+        failure:
+        - "Hub not found error"
+      parameters:
+        componentName: "Get UX"
+        mode: "Advanced"
+        query: "${prvt_ux_query}"
+        gridVariable: "prvt_gv_hubcolumns"
+        gridVariableMapping:
+        - - "UXLIST"
+          - "colnames"
+        - - "HUBNAME"
+          - "hubname"
+    Metadata pass 2:
+      type: "python-script"
+      transitions:
+        success:
+        - "f_dv2_hash"
+      parameters:
+        componentName: "Metadata pass 2"
+        script: |
+          # Generate the DDL and DML clauses
+
+          fkddl = ""
+          uxcols = ""
+          uxexpr = ""
+          hashkey_dml='"' + jv_database + '"."' + jv_schema + '"."f_dv2_hash"(array_construct('
+          valid_clause = '1 = "__deduplicator"'
+          fullbk = ""
+          satobj_arr = []
+          satobj_expr = ""
+
+          # Set up the array of column names
+          # The business keys of all the hubs will be removed later, leaving only the attributes
+          for c in context.getGridVariable('prvt_gv_viewcolumns'):
+            satobj_arr.append(c[0])
+
+          # These are all the UX columns for all the Hub tables being joined
+          aa = context.getGridVariable('prvt_gv_hubcolumns')
+
+          # Log the hubs and their unique key columns
+          for h in sorted(context.getGridVariable('gv_hubs_to_link')):
+            vux = None
+            for r in aa:
+              if("h_" + h[0] == r[0]):
+                vux = r[1]
+                print("Unique key of h_%s is %s" % (h[0], vux))
+            if None == vux:
+              xstr = "Error: table h_%s does not exist or has no unique key defined" % h[0]
+              raise Exception(xstr)
+
+
+          for h in sorted(context.getGridVariable('gv_hubs_to_link')):
+            print("Adding FK to h_%s" % h[0])
+            fkddl = fkddl + '"' + h[0] + '_hashkey" VARCHAR(64) NOT NULL,'
+            uxcols = uxcols + ',"' + h[0] + '_hashkey"'
+            colxpr = ""
+            for r in aa:
+              if("h_" + h[0] == r[0]):
+                bkcols = sorted([x.strip() for x in r[1].split(',')])
+                print("PK columns: %s" % bkcols)
+                for c in bkcols:
+                  hashkey_dml = hashkey_dml + c + ","
+                  colxpr = colxpr + ',' + c
+                  valid_clause = valid_clause + " AND " + c + " IS NOT NULL"
+                  fullbk = fullbk + "," + c
+                  # If the removal fails with a ValueError then one of the UX columns was not in the column list, which should not happen
+                  satobj_arr.remove(c.replace('"', ''))
+            uxexpr = uxexpr + '"' + jv_database + '"."' + jv_schema + '"."f_dv2_hash"(array_construct(%s)) AS "%s_hashkey",' % (colxpr[1:], h[0])
+
+          hashkey_dml = hashkey_dml[:-1] + "))"
+          uxcols = uxcols[1:]
+          fullbk = fullbk[1:]
+
+          newhashkey = '"' + jv_database + '"."' + jv_schema + '"."f_dv2_hash"(array_construct(%s))' % fullbk
+
+          for s in satobj_arr:
+            satobj_expr = satobj_expr + ',' + """'%s', "%s" """ % (s,s)
+
+          satobj_expr = satobj_expr[1:]
+
+          print("Link FK DDL: %s" % fkddl)
+          print("UX columns: %s" % uxcols)
+          print("UX expression: %s" % uxexpr)
+          print("Hashkey DML: %s" % hashkey_dml)
+          print("Validity clause: %s" % valid_clause)
+          print("Full BK: %s" % fullbk)
+          print("Full hx: %s" % newhashkey)
+          print("Sat Obj expr: %s" % satobj_expr)
+
+          context.updateVariable('prvt_fkddl', fkddl)
+          context.updateVariable('prvt_uxcols', uxcols)
+          context.updateVariable('prvt_uxexpr', uxexpr)
+          context.updateVariable('prvt_hashkey_dml', hashkey_dml)
+          context.updateVariable('prvt_valid_clause', valid_clause)
+          context.updateVariable('prvt_fullbk', fullbk)
+          context.updateVariable('prvt_newhashkey', newhashkey)
+          context.updateVariable('prvt_satobj_expr', satobj_expr)
+        interpreter: "Python 3"
+        timeout: "360"
+    Hub not found error:
+      type: "python-script"
+      parameters:
+        componentName: "Hub not found error"
+        script: |
+          # The tables don't exist or not privileged
+
+          raise Exception("Failed to get Snowflake definition for Hub tables: " + (", ".join(["h_" + x[0] for x in context.getGridVariable('gv_hubs_to_link')])))
+        interpreter: "Python 3"
+        timeout: "360"
+    f_dv2_hash:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Link DDL"
+      parameters:
+        componentName: "f_dv2_hash"
+        sqlScript: "CREATE OR REPLACE FUNCTION \"${jv_database}\".\"${jv_schema}\"\
+          .\"f_dv2_hash\"(ids array)\r\nRETURNS varchar\r\nAS $$\r\n   MD5(ARRAY_TO_STRING(ids,\
+          \ ','))\r\n$$\r\n;\r\n"
+    Link DDL:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Satellite DDL"
+      parameters:
+        componentName: "Link DDL"
+        sqlScript: "CREATE TABLE IF NOT EXISTS \"${jv_database}\".\"${jv_schema}\"\
+          .\"l_${prvt_link_stub}\"\r\n(\r\n\t\"hashkey\" VARCHAR(64) NOT NULL UNIQUE,\r\
+          \n    ${prvt_fkddl}\r\n\t\"load_timestamp\"      TIMESTAMP_NTZ NOT NULL,\r\
+          \n\t\"record_source\"       VARCHAR(64) NOT NULL,\r\n  CONSTRAINT bk_h_dummy\
+          \ UNIQUE (${prvt_uxcols})\r\n)"
+    Satellite DDL:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Error DDL"
+      parameters:
+        componentName: "Satellite DDL"
+        sqlScript: "CREATE TABLE IF NOT EXISTS \"${jv_database}\".\"${jv_schema}\"\
+          .\"s_${prvt_link_stub}\"\r\n(\r\n\t\"hashkey\"             VARCHAR(64) NOT\
+          \ NULL,\r\n\t\"load_timestamp\"      TIMESTAMP_NTZ NOT NULL,\r\n\t\"record_source\"\
+          \       VARCHAR(64) NOT NULL,\r\n\t\"latest_from_source\"  BOOLEAN NOT NULL,\r\
+          \n\t\"hashdiff\"            VARCHAR(64) NOT NULL,\r\n\t\"context\"     \
+          \        OBJECT NULL,\r\n  CONSTRAINT bk_h_dummy UNIQUE (\"hashkey\", \"\
+          load_timestamp\")\r\n)"
+    Error DDL:
+      type: "sql-script"
+      transitions:
+        success:
+        - "MTI DML"
+      parameters:
+        componentName: "Error DDL"
+        sqlScript: "CREATE TABLE IF NOT EXISTS \"${jv_database}\".\"${jv_schema}\"\
+          .\"e_${prvt_link_stub}\"\r\n(\r\n\t\"load_timestamp\"      TIMESTAMP_NTZ\
+          \ NOT NULL,\r\n\t\"record_source\"       VARCHAR(64) NOT NULL,\r\n\t\"context\"\
+          \             OBJECT NULL\r\n)"
+    MTI DML:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Sat currency"
+      parameters:
+        componentName: "MTI DML"
+        sqlScript: "INSERT ALL\r\nWHEN ${prvt_valid_clause}\r\n    AND 0 = (SELECT\
+          \ COUNT(*)        \r\n              FROM \"${jv_database}\".\"${jv_schema}\"\
+          .\"l_${prvt_link_stub}\" l\r\n              WHERE l.\"hashkey\" = \"newhashkey\"\
+          )\r\n    THEN INTO \"${jv_database}\".\"${jv_schema}\".\"l_${prvt_link_stub}\"\
+          \r\n              (\"hashkey\", ${prvt_uxcols}, \"load_timestamp\", \"record_source\"\
+          )\r\n       VALUES (\"newhashkey\", ${prvt_uxcols}, current_timestamp, '${jv_record_source}')\r\
+          \nWHEN ${prvt_valid_clause}\r\n    AND 0 = (SELECT COUNT(*)        \r\n\
+          \              FROM \"${jv_database}\".\"${jv_schema}\".\"s_${prvt_link_stub}\"\
+          \ s\r\n              WHERE s.\"hashkey\" = \"newhashkey\"\r\n          \
+          \    AND   s.\"record_source\" = '${jv_record_source}'\r\n             \
+          \ AND   s.\"latest_from_source\" = TRUE\r\n              AND   s.\"hashdiff\"\
+          \ = MD5(TO_JSON(\"__obj\")))\r\n    THEN INTO \"${jv_database}\".\"${jv_schema}\"\
+          .\"s_${prvt_link_stub}\"\r\n              (\"hashkey\", \"load_timestamp\"\
+          , \"record_source\", \"latest_from_source\", \"hashdiff\", \"context\")\r\
+          \n       VALUES (\"newhashkey\",\r\n               current_timestamp,\r\n\
+          \               '${jv_record_source}',\r\n               TRUE,\r\n     \
+          \          MD5(TO_JSON(\"__obj\")),\r\n               \"__obj\")\r\nWHEN\
+          \ NOT(${prvt_valid_clause})\r\n    THEN INTO \"${jv_database}\".\"${jv_schema}\"\
+          .\"e_${prvt_link_stub}\"\r\n              (\"load_timestamp\", \"record_source\"\
+          , \"context\")\r\n       VALUES (current_timestamp, '${jv_record_source}',\
+          \ \"__obj\")\r\nSELECT ${prvt_fullbk},\r\n       ${prvt_newhashkey} AS \"\
+          newhashkey\",\r\n       ${prvt_uxexpr}\r\n       OBJECT_CONSTRUCT(${prvt_satobj_expr})\
+          \ AS \"__obj\",\r\n       ROW_NUMBER() OVER (PARTITION BY ${prvt_fullbk}\
+          \ ORDER BY 1) AS \"__deduplicator\"\r\nFROM \"${jv_database}\".\"${jv_schema}\"\
+          .\"${jv_staging_view_name}\" AS \"src\""
+    Sat currency:
+      type: "sql-script"
+      parameters:
+        componentName: "Sat currency"
+        sqlScript: "UPDATE \"${jv_database}\".\"${jv_schema}\".\"s_${prvt_link_stub}\"\
+          \ s1\r\nSET s1.\"latest_from_source\" = s2.\"is_latest\"\r\nFROM (SELECT\
+          \ \"hashkey\",\r\n             \"record_source\",\r\n             \"hashdiff\"\
+          ,\r\n             \"load_timestamp\",\r\n             CASE ROW_NUMBER()\
+          \ OVER (PARTITION BY \"hashkey\", \"record_source\" ORDER BY \"load_timestamp\"\
+          \ DESC)\r\n             WHEN 1 THEN TRUE\r\n                    ELSE FALSE\r\
+          \n             END AS \"is_latest\"\r\n      FROM \"${jv_database}\".\"\
+          ${jv_schema}\".\"s_${prvt_link_stub}\") s2\r\nWHERE          s1.\"hashkey\"\
+          \  = s2.\"hashkey\"\r\nAND      s1.\"record_source\"  = s2.\"record_source\"\
+          \r\nAND           s1.\"hashdiff\"  = s2.\"hashdiff\"\r\nAND     s1.\"load_timestamp\"\
+          \  = s2.\"load_timestamp\"\r\nAND s1.\"latest_from_source\" != s2.\"is_latest\""
+  variables:
+    prvt_fullbk:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_link_stub:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_uxexpr:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_newhashkey:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_valid_clause:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_hub:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_uxcols:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    jv_schema:
+      metadata:
+        type: "TEXT"
+        description: "Schema Name"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prvt_selected_colnames:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    jv_record_source:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_staging_view_name:
+      metadata:
+        type: "TEXT"
+        description: "Name of a view (or table) which contains the link data"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prvt_fkddl:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_ux_query:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_satobj_expr:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    jv_database:
+      metadata:
+        type: "TEXT"
+        description: "Database Name"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_link_suffix:
+      metadata:
+        type: "TEXT"
+        description: "Added to the link table name to distinguish multiple links between\
+          \ the same hubs (default __link__)"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "link"
+    prvt_hashkey_dml:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_gv_viewcolumns:
+      metadata:
+        type: "GRID"
+        description: |-
+          The columns in the Staging View
+          The colname is not double-quoted
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          colname:
+            columnType: "TEXT"
+      defaultValue: []
+    prvt_gv_hubcolumns:
+      metadata:
+        type: "GRID"
+        description: |-
+          The columns in every Hub table which make up the unique key
+          The hubname is not double-quoted
+          The colnames are double-quoted
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          hubname:
+            columnType: "TEXT"
+          colnames:
+            columnType: "TEXT"
+      defaultValue: []
+    gv_hubs_to_link:
+      metadata:
+        type: "GRID"
+        description: |-
+          The list of the Hub tables to be linked
+          hubname is the stub only, and is not double-quoted
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          hubname:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Staging Metadata:
+      position:
+        x: 120
+        "y": 0
+      tempMetlId: 2
+    Metadata pass 1:
+      position:
+        x: 240
+        "y": 0
+      tempMetlId: 3
+    Get UX:
+      position:
+        x: 360
+        "y": 0
+      tempMetlId: 4
+    Metadata pass 2:
+      position:
+        x: 480
+        "y": 0
+      tempMetlId: 5
+    Hub not found error:
+      position:
+        x: 430
+        "y": 140
+      tempMetlId: 6
+    f_dv2_hash:
+      position:
+        x: 630
+        "y": 0
+      tempMetlId: 7
+    Link DDL:
+      position:
+        x: 760
+        "y": 0
+      tempMetlId: 8
+    Satellite DDL:
+      position:
+        x: 900
+        "y": 0
+      tempMetlId: 9
+    Error DDL:
+      position:
+        x: 1030
+        "y": 0
+      tempMetlId: 10
+    MTI DML:
+      position:
+        x: 1220
+        "y": 0
+      tempMetlId: 11
+    Sat currency:
+      position:
+        x: 1460
+        "y": 0
+      tempMetlId: 12
+  notes:
+    "1":
+      position:
+        x: 490
+        "y": -430
+      size:
+        height: 288
+        width: 890
+      theme: "white"
+      content: |+
+        This pipeline takes data from a staging view (or table) and populates a Data Vault 2.0 Link, Satellite and Error table.
+
+        Scalar Inputs:
+
+        - **jv_database** Database Name
+        - **jv_link_suffix** Added to the link table name to distinguish multiple links between the same hubs (default __link__)
+        - **jv_record_source** Name of source system
+        - **jv_schema** Schema Name
+        - **jv_staging_view_name** Name of a view (or table) which contains the link data in the staging area
+
+        Grid Inputs:
+
+        - **gv_hubs_to_link** The stub names of all the Hub tables being linked
+
+    "2":
+      position:
+        x: 590
+        "y": -90
+      size:
+        height: 208
+        width: 510
+      theme: "white"
+      content: "DDL if needed"
+    "3":
+      position:
+        x: 1130
+        "y": -90
+      size:
+        height: 208
+        width: 230
+      theme: "white"
+      content: "Load the Link, Satellite and Error table with a MTI"
+    "4":
+      position:
+        x: 1390
+        "y": -90
+      size:
+        height: 208
+        width: 190
+      theme: "white"
+      content: "Update non-current Satellite records"
+    "5":
+      position:
+        x: 0
+        "y": -390
+      size:
+        height: 218
+        width: 390
+      theme: "white"
+      content: "![Link and Satellite](https://exchange.matillion.com/data-productivity-cloud/pipeline/data-vault-2-0-pipelines/Data-Vault-2-Link-Satellite.png)"
