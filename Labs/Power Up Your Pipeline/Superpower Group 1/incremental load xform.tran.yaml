@@ -1,0 +1,451 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Multi Table Input - Sales:
+      type: "multi-table-input"
+      parameters:
+        componentName: "Multi Table Input - Sales"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        patternType: "Like"
+        pattern: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_%"
+        castTypes: "No"
+        addSourceTable: "No"
+        columns:
+        - "TRANSACTION_DATE"
+        - "TRANSACTION_ID"
+        - "PRODUCT_ID"
+        - "PRODUCT_NAME"
+        - "PRODUCT_PRICE"
+        - "SALE_INDICATOR"
+        - "REVIEW"
+        - "STORE_ID"
+        - "REVIEW_INDICATOR"
+    Multi Table Input - Store Location:
+      type: "multi-table-input"
+      parameters:
+        componentName: "Multi Table Input - Store Location"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        patternType: "Like"
+        pattern: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_%"
+        castTypes: "No"
+        addSourceTable: "No"
+        columns:
+        - "LOCATION_NAME"
+        - "STORE_ID"
+    Today's Date:
+      type: "fixed-flow"
+      parameters:
+        componentName: "Today's Date"
+        columns:
+        - - "last_updated"
+          - "DATE"
+          - ""
+          - ""
+        values:
+        - - "${proj_today_date}"
+    Shoe Specifications:
+      type: "table-input"
+      parameters:
+        componentName: "Shoe Specifications"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CHARLIES_SHOE_EMPORIUM_SHOE_SPECIFICATIONS"
+        columnNames:
+        - "PRODUCT_NAME"
+        - "PRIMARY_COLOR"
+        - "SECONDARY_COLOR"
+        - "PRODUCT_LINE"
+        - "COMFORT"
+        - "RESPONSIVENESS"
+        - "WEIGHT_OZ"
+        - "CUSHIONING"
+        - "BREATHABILITY"
+        timeOffset:
+    Join:
+      type: "join"
+      sources:
+      - "Shoe Specifications"
+      - "Today's Date"
+      - "Multi Table Input - Store Location"
+      - "Filter <= Today Date"
+      parameters:
+        componentName: "Join"
+        mainTable: "Filter <= Today Date"
+        mainTableAlias: "sales"
+        joins:
+        - - "Multi Table Input - Store Location"
+          - "stores"
+          - "Left"
+        - - "Today's Date"
+          - "date"
+          - "Left"
+        - - "Shoe Specifications"
+          - "shoes"
+          - "Left"
+        joinExpressions:
+        - - "\"sales\".\"STORE_ID\" = \"stores\".\"STORE_ID\""
+          - "sales_Left_stores"
+        - - "1 = 1"
+          - "sales_Left_date"
+        - - "\"sales\".\"PRODUCT_NAME\" = \"shoes\".\"PRODUCT_NAME\""
+          - "sales_Left_shoes"
+        columnMappings:
+        - - "date.last_updated"
+          - "LAST_UPDATED"
+        - - "stores.LOCATION_NAME"
+          - "STORE_LOCATION"
+        - - "sales.TRANSACTION_ID"
+          - "TRANSACTION_ID"
+        - - "sales.TRANSACTION_DATE"
+          - "TRANSACTION_DATE"
+        - - "sales.PRODUCT_NAME"
+          - "PRODUCT_NAME"
+        - - "sales.SALE_INDICATOR"
+          - "SALE_INDICATOR"
+        - - "sales.PRODUCT_PRICE"
+          - "PRODUCT_PRICE"
+        - - "sales.REVIEW_INDICATOR"
+          - "REVIEW_INDICATOR"
+        - - "sales.REVIEW"
+          - "REVIEW"
+        - - "shoes.PRIMARY_COLOR"
+          - "PRIMARY_COLOR"
+        - - "shoes.SECONDARY_COLOR"
+          - "SECONDARY_COLOR"
+        - - "shoes.PRODUCT_LINE"
+          - "PRODUCT_LINE"
+        - - "shoes.COMFORT"
+          - "COMFORT"
+        - - "shoes.RESPONSIVENESS"
+          - "RESPONSIVENESS"
+        - - "shoes.WEIGHT_OZ"
+          - "WEIGHT_OZ"
+        - - "shoes.CUSHIONING"
+          - "CUSHIONING"
+        - - "shoes.BREATHABILITY"
+          - "BREATHABILITY"
+    Filter <= Today Date:
+      type: "filter"
+      sources:
+      - "Multi Table Input - Sales"
+      parameters:
+        componentName: "Filter <= Today Date"
+        filterConditions:
+        - - "TRANSACTION_DATE"
+          - "Is"
+          - "Less than or equal to"
+          - "${proj_today_date}"
+        combineCondition: "And"
+    Upsert to src_charlies_shoe_emporium_sales:
+      type: "table-update"
+      sources:
+      - "Detect Changes"
+      parameters:
+        componentName: "Upsert to src_charlies_shoe_emporium_sales"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
+        targetAlias: "target"
+        sourceAlias: "input"
+        joinExpression:
+        - - "\"input\".\"TRANSACTION_ID_A\" = \"target\".\"TRANSACTION_ID\""
+          - "Case"
+        whenMatched:
+        - - "1=1"
+          - "Update"
+        updateMapping:
+        - - "STORE_LOCATION"
+          - "STORE_LOCATION"
+        - - "TRANSACTION_ID_A"
+          - "TRANSACTION_ID"
+        - - "TRANSACTION_DATE"
+          - "TRANSACTION_DATE"
+        - - "PRODUCT_NAME"
+          - "PRODUCT_NAME"
+        - - "SALE_INDICATOR"
+          - "SALE_INDICATOR"
+        - - "PRODUCT_PRICE"
+          - "PRODUCT_PRICE"
+        - - "REVIEW_INDICATOR"
+          - "REVIEW_INDICATOR"
+        - - "REVIEW"
+          - "REVIEW"
+        - - "PRIMARY_COLOR"
+          - "PRIMARY_COLOR"
+        - - "PRODUCT_LINE"
+          - "PRODUCT_LINE"
+        - - "COMFORT"
+          - "COMFORT"
+        - - "RESPONSIVENESS"
+          - "RESPONSIVENESS"
+        - - "WEIGHT_OZ"
+          - "WEIGHT_OZ"
+        - - "CUSHIONING"
+          - "CUSHIONING"
+        - - "BREATHABILITY"
+          - "BREATHABILITY"
+        includeNotMatched: "Yes"
+        insertMapping:
+        - - "LAST_UPDATED"
+          - "LAST_UPDATED"
+        - - "STORE_LOCATION"
+          - "STORE_LOCATION"
+        - - "TRANSACTION_ID_A"
+          - "TRANSACTION_ID"
+        - - "TRANSACTION_DATE"
+          - "TRANSACTION_DATE"
+        - - "PRODUCT_NAME"
+          - "PRODUCT_NAME"
+        - - "SALE_INDICATOR"
+          - "SALE_INDICATOR"
+        - - "PRODUCT_PRICE"
+          - "PRODUCT_PRICE"
+        - - "REVIEW_INDICATOR"
+          - "REVIEW_INDICATOR"
+        - - "REVIEW"
+          - "REVIEW"
+        - - "PRIMARY_COLOR"
+          - "PRIMARY_COLOR"
+        - - "PRODUCT_LINE"
+          - "PRODUCT_LINE"
+        - - "COMFORT"
+          - "COMFORT"
+        - - "RESPONSIVENESS"
+          - "RESPONSIVENESS"
+        - - "WEIGHT_OZ"
+          - "WEIGHT_OZ"
+        - - "CUSHIONING"
+          - "CUSHIONING"
+        - - "BREATHABILITY"
+          - "BREATHABILITY"
+    Read src_charlies_shoe_emporium_sales:
+      type: "table-input"
+      parameters:
+        componentName: "Read src_charlies_shoe_emporium_sales"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
+        columnNames:
+        - "LAST_UPDATED"
+        - "STORE_LOCATION"
+        - "TRANSACTION_ID"
+        - "TRANSACTION_DATE"
+        - "PRODUCT_NAME"
+        - "SALE_INDICATOR"
+        - "PRODUCT_PRICE"
+        - "REVIEW_INDICATOR"
+        - "REVIEW"
+        - "PRIMARY_COLOR"
+        - "SECONDARY_COLAR"
+        - "PRODUCT_LINE"
+        - "COMFORT"
+        - "RESPONSIVENESS"
+        - "WEIGHT_OZ"
+        - "CUSHIONING"
+        - "BREATHABILITY"
+        timeOffset:
+    Count by Location:
+      type: "aggregate"
+      sources:
+      - "Read src_charlies_shoe_emporium_sales"
+      parameters:
+        componentName: "Count by Location"
+        groupings:
+        - "STORE_LOCATION"
+        aggregations:
+        - - "STORE_LOCATION"
+          - "Count"
+        groupingType: "Group By"
+    Count by Date:
+      type: "aggregate"
+      sources:
+      - "Read src_charlies_shoe_emporium_sales"
+      parameters:
+        componentName: "Count by Date"
+        groupings:
+        - "LAST_UPDATED"
+        aggregations:
+        - - "STORE_LOCATION"
+          - "Count"
+        groupingType: "Group By"
+    Detect Changes:
+      type: "detect-changes"
+      sources:
+      - "Join"
+      - "Read src_charlies_shoe_emporium_sales 2"
+      parameters:
+        componentName: "Detect Changes"
+        masterTable: "Read src_charlies_shoe_emporium_sales 2"
+        matchKeys:
+        - "TRANSACTION_ID"
+        compareColumns:
+        - "LAST_UPDATED"
+        - "STORE_LOCATION"
+        - "TRANSACTION_ID"
+        - "TRANSACTION_DATE"
+        - "PRODUCT_NAME"
+        - "SALE_INDICATOR"
+        - "PRODUCT_PRICE"
+        - "REVIEW_INDICATOR"
+        - "REVIEW"
+        - "PRIMARY_COLOR"
+        - "PRODUCT_LINE"
+        - "COMFORT"
+        - "RESPONSIVENESS"
+        - "WEIGHT_OZ"
+        - "CUSHIONING"
+        - "BREATHABILITY"
+        outputColumnMapping:
+        - - "compare_LAST_UPDATED"
+          - "LAST_UPDATED"
+        - - "compare_STORE_LOCATION"
+          - "STORE_LOCATION"
+        - - "compare_TRANSACTION_ID"
+          - "TRANSACTION_ID_A"
+        - - "compare_TRANSACTION_DATE"
+          - "TRANSACTION_DATE"
+        - - "compare_PRODUCT_NAME"
+          - "PRODUCT_NAME"
+        - - "compare_SALE_INDICATOR"
+          - "SALE_INDICATOR"
+        - - "compare_PRODUCT_PRICE"
+          - "PRODUCT_PRICE"
+        - - "compare_REVIEW_INDICATOR"
+          - "REVIEW_INDICATOR"
+        - - "compare_REVIEW"
+          - "REVIEW"
+        - - "compare_PRIMARY_COLOR"
+          - "PRIMARY_COLOR"
+        - - "compare_PRODUCT_LINE"
+          - "PRODUCT_LINE"
+        - - "compare_COMFORT"
+          - "COMFORT"
+        - - "compare_RESPONSIVENESS"
+          - "RESPONSIVENESS"
+        - - "compare_WEIGHT_OZ"
+          - "WEIGHT_OZ"
+        - - "compare_CUSHIONING"
+          - "CUSHIONING"
+        - - "compare_BREATHABILITY"
+          - "BREATHABILITY"
+        indicatorColumn: "Indicator"
+    Read src_charlies_shoe_emporium_sales 2:
+      type: "table-input"
+      parameters:
+        componentName: "Read src_charlies_shoe_emporium_sales 2"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
+        columnNames:
+        - "LAST_UPDATED"
+        - "STORE_LOCATION"
+        - "TRANSACTION_ID"
+        - "TRANSACTION_DATE"
+        - "PRODUCT_NAME"
+        - "SALE_INDICATOR"
+        - "PRODUCT_PRICE"
+        - "REVIEW_INDICATOR"
+        - "REVIEW"
+        - "PRIMARY_COLOR"
+        - "SECONDARY_COLAR"
+        - "PRODUCT_LINE"
+        - "COMFORT"
+        - "RESPONSIVENESS"
+        - "WEIGHT_OZ"
+        - "CUSHIONING"
+        - "BREATHABILITY"
+        timeOffset:
+design:
+  components:
+    Multi Table Input - Sales:
+      position:
+        x: 260
+        "y": 120
+      tempMetlId: 1
+    Multi Table Input - Store Location:
+      position:
+        x: 260
+        "y": 220
+      tempMetlId: 2
+    Today's Date:
+      position:
+        x: 260
+        "y": 410
+      tempMetlId: 3
+    Shoe Specifications:
+      position:
+        x: 260
+        "y": 320
+      tempMetlId: 4
+    Join:
+      position:
+        x: 570
+        "y": 220
+      tempMetlId: 5
+    Filter <= Today Date:
+      position:
+        x: 410
+        "y": 120
+      tempMetlId: 6
+    Upsert to src_charlies_shoe_emporium_sales:
+      position:
+        x: 970
+        "y": 220
+      tempMetlId: 7
+    Read src_charlies_shoe_emporium_sales:
+      position:
+        x: 1200
+        "y": 220
+      tempMetlId: 8
+    Count by Location:
+      position:
+        x: 1360
+        "y": 220
+      tempMetlId: 9
+    Count by Date:
+      position:
+        x: 1360
+        "y": 130
+      tempMetlId: 10
+    Detect Changes:
+      position:
+        x: 780
+        "y": 220
+      tempMetlId: 11
+    Read src_charlies_shoe_emporium_sales 2:
+      position:
+        x: 570
+        "y": 330
+      tempMetlId: 12
+  notes:
+    "1":
+      position:
+        x: 200
+        "y": 50
+      size:
+        height: 458
+        width: 470
+      theme: "light-green"
+      content: "*Join CO and OR Sources*"
+    "2":
+      position:
+        x: 720
+        "y": 100
+      size:
+        height: 248
+        width: 360
+      theme: "light-green"
+      content: "*Load only new / changes records to **src_charlies_shoe_emporium_sales***"
+    "3":
+      position:
+        x: 1140
+        "y": 100
+      size:
+        height: 248
+        width: 320
+      theme: "light-green"
+      content: "*Validate data*"

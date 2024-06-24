@@ -1,0 +1,88 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Cortex Sentiment:
+      type: "cortex-sentiment"
+      sources:
+      - "Filter"
+      parameters:
+        componentName: "Cortex Sentiment"
+        columns:
+        - "REVIEW"
+        includeInputColumns: "Yes"
+    Aggregate - Sentiment by Shoe Model:
+      type: "aggregate"
+      sources:
+      - "Cortex Sentiment"
+      parameters:
+        componentName: "Aggregate - Sentiment by Shoe Model"
+        groupings:
+        - "PRODUCT_NAME"
+        aggregations:
+        - - "sentiment_REVIEW"
+          - "Average"
+        groupingType: "Group By"
+    Rewrite Table:
+      type: "rewrite-table"
+      sources:
+      - "Aggregate - Sentiment by Shoe Model"
+      parameters:
+        componentName: "Rewrite Table"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CHARLIES_SENTIMENT_BY_SHOE"
+        orderBy:
+    SRC_CHARLIES_SHOE_EMPORIUM_SALES:
+      type: "table-input"
+      parameters:
+        componentName: "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
+        columnNames:
+        - "TRANSACTION_ID"
+        - "PRODUCT_NAME"
+        - "REVIEW_INDICATOR"
+        - "REVIEW"
+        timeOffset:
+    Filter:
+      type: "filter"
+      sources:
+      - "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
+      parameters:
+        componentName: "Filter"
+        filterConditions:
+        - - "REVIEW_INDICATOR"
+          - "Is"
+          - "Equal to"
+          - "true"
+        combineCondition: "And"
+design:
+  components:
+    Cortex Sentiment:
+      position:
+        x: 0
+        "y": 110
+      tempMetlId: 3
+    Aggregate - Sentiment by Shoe Model:
+      position:
+        x: 160
+        "y": 110
+      tempMetlId: 4
+    Rewrite Table:
+      position:
+        x: 320
+        "y": 110
+      tempMetlId: 8
+    SRC_CHARLIES_SHOE_EMPORIUM_SALES:
+      position:
+        x: -290
+        "y": 110
+      tempMetlId: 9
+    Filter:
+      position:
+        x: -140
+        "y": 110
+      tempMetlId: 10

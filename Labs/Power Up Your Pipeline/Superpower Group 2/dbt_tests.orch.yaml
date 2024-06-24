@@ -1,0 +1,342 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "dbt debug"
+      parameters:
+        componentName: "Start"
+    dbt test:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "Send dbt Test Success Email"
+        failure:
+        - "Query Result To Scalar"
+      parameters:
+        componentName: "dbt test"
+        command: "dbt test"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/PoweredUpPipelines_dbt.git"
+        branch: "dev"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "github_dbt"
+        mapDbtEnvironmentVariables:
+        config:
+        profileConfig:
+    Send dbt Setup Failure Email:
+      type: "send-email"
+      parameters:
+        componentName: "Send dbt Setup Failure Email"
+        toRecipients:
+        - - "karey.graham@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Setup Components Failed"
+        message: |-
+          Top Anomaly Detected:
+
+          ${PV_TOP_ANOMALY}
+        senderAddress: "karey.graham@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "kg_smtp"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    dbt debug:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+        unconditional:
+        - "dbt deps"
+      parameters:
+        componentName: "dbt debug"
+        command: "dbt debug"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/PoweredUpPipelines_dbt.git"
+        branch: "dev"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "github_dbt"
+        mapDbtEnvironmentVariables:
+        config:
+        profileConfig:
+    dbt deps:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+        unconditional:
+        - "dbt list"
+      parameters:
+        componentName: "dbt deps"
+        command: "dbt deps"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/PoweredUpPipelines_dbt.git"
+        branch: "dev"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "github_dbt"
+        mapDbtEnvironmentVariables:
+        config:
+        profileConfig:
+    dbt list:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+        unconditional:
+        - "dbt compile"
+      parameters:
+        componentName: "dbt list"
+        command: "dbt list"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/PoweredUpPipelines_dbt.git"
+        branch: "dev"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "github_dbt"
+        mapDbtEnvironmentVariables:
+        config:
+        profileConfig:
+    dbt compile:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "dbt compile"
+        command: "dbt compile"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/PoweredUpPipelines_dbt.git"
+        branch: "dev"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "github_dbt"
+        mapDbtEnvironmentVariables:
+        config:
+        profileConfig:
+    Or:
+      type: "or"
+      transitions:
+        unconditional:
+        - "Send dbt Setup Failure Email"
+      parameters:
+        componentName: "Or"
+    And:
+      type: "and"
+      transitions:
+        unconditional:
+        - "dbt test"
+      parameters:
+        componentName: "And"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    Query Result To Scalar:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Send dbt Test Failure Email"
+      parameters:
+        componentName: "Query Result To Scalar"
+        mode: "Advanced"
+        query: "select * from DEV_DB.KAREY_KAREY_DBT_FAILURES.\"source_accepted_values_src_pow_807bfbcd13d5f5329df1bcacc31577a4\""
+        scalarVariableMapping:
+        - - "pv_non_accepted_value"
+          - "VALUE_FIELD"
+        - - "pv_non_accepted_value_count"
+          - "N_RECORDS"
+    Send dbt Test Failure Email:
+      type: "send-email"
+      parameters:
+        componentName: "Send dbt Test Failure Email"
+        toRecipients:
+        - - "karey.graham@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Test Component Failed"
+        message: |-
+          Failure Detected!
+
+          Top Test Failure and Count:
+
+          ${pv_non_accepted_value} : ${pv_non_accepted_value_count}
+        senderAddress: "karey.graham@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "kg_smtp"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    Send dbt Test Success Email:
+      type: "send-email"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Send dbt Test Success Email"
+        toRecipients:
+        - - "karey.graham@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Success - dbt Test Component Success"
+        message: |-
+          You're the pipeline prodigy.
+
+          https://giphy.com/embed/a0h7sAqON67nO
+        senderAddress: "karey.graham@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "kg_smtp"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+  variables:
+    pv_non_accepted_value:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    pv_non_accepted_value_count:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: -200
+        "y": 0
+      tempMetlId: 1
+    dbt test:
+      position:
+        x: 450
+        "y": 100
+      tempMetlId: 2
+    Send dbt Setup Failure Email:
+      position:
+        x: 450
+        "y": -90
+      tempMetlId: 3
+    dbt debug:
+      position:
+        x: -100
+        "y": 0
+      tempMetlId: 4
+    dbt deps:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 5
+    dbt list:
+      position:
+        x: 100
+        "y": 0
+      tempMetlId: 6
+    dbt compile:
+      position:
+        x: 210
+        "y": 0
+      tempMetlId: 7
+    Or:
+      position:
+        x: 340
+        "y": -90
+      tempMetlId: 8
+    And:
+      position:
+        x: 340
+        "y": 100
+      tempMetlId: 9
+    End Success:
+      position:
+        x: 750
+        "y": 100
+      tempMetlId: 10
+    Query Result To Scalar:
+      position:
+        x: 610
+        "y": 0
+      tempMetlId: 11
+    Send dbt Test Failure Email:
+      position:
+        x: 750
+        "y": 0
+      tempMetlId: 12
+    Send dbt Test Success Email:
+      position:
+        x: 610
+        "y": 100
+      tempMetlId: 13
+  notes:
+    "1":
+      position:
+        x: -130
+        "y": -60
+      size:
+        height: 148
+        width: 420
+      theme: "light-yellow"
+      content: "*dbt setup/validation commands:*"
+    "2":
+      position:
+        x: 310
+        "y": -260
+      size:
+        height: 448
+        width: 220
+      theme: "light-yellow"
+      content: |-
+        *Dynamic logic:*
+        - If any dbt setup/validation failures --> send email to stakeholders
+        - If all succeed, dbt test will be conducted
+    "3":
+      position:
+        x: 550
+        "y": -150
+      size:
+        height: 338
+        width: 300
+      theme: "light-yellow"
+      content: |
+        *Dynamic Logic, part deaux:*
+        - If the data quality checks pass, job ends in success
+        - If DQ checks fail, email will be sent with the top DQ failures in body of email
+    "4":
+      position:
+        x: -130
+        "y": -240
+      size:
+        height: 138
+        width: 410
+      theme: "yellow"
+      content: |-
+        ## Objective
+        Test data quality using dbt, and user is notified of success or failure
+    "5":
+      position:
+        x: -310
+        "y": -240
+      size:
+        height: 328
+        width: 170
+      theme: "white"
+      content: |-
+        **To use dbt:**
+        You need an already existing Github user. In the dbt core components, input your Github username in the **Git Username** and password or Personal Access Token in the **Git Password** field.

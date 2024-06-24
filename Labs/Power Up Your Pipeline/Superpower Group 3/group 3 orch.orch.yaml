@@ -1,0 +1,115 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Sentiment Analysis on Reviews"
+      parameters:
+        componentName: "Start"
+    Alter Warehouse - Suspend:
+      type: "alter-warehouse"
+      parameters:
+        componentName: "Alter Warehouse - Suspend"
+        warehouse: "[Environment Default]"
+        commandType: "Resume"
+    Delete Tables:
+      type: "delete-tables"
+      parameters:
+        componentName: "Delete Tables"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable:
+        - "RAW_CHARLIES_SHOE_EMPORIUM_SALES_OR"
+        - "RAW_CHARLIES_SHOE_EMPORIUM_SALES_CO"
+        ignoreMissing: "Yes"
+    Run Sentiment Analysis on Reviews:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "S3 File Management via Boto3"
+        - "Delete Tables"
+        - "Alter Warehouse - Suspend"
+      parameters:
+        componentName: "Run Sentiment Analysis on Reviews"
+        transformationJob: "Superpower Group 3/group 3 transform"
+        setScalarVariables:
+        setGridVariables:
+    S3 File Management via Boto3:
+      type: "python-pushdown"
+      parameters:
+        componentName: "S3 File Management via Boto3"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "import boto3\nimport os\n\n# Initialize S3 client\ns3 = boto3.client('s3')\n\
+          \ndef move_csv_files(bucket_name, source_directory, destination_directory):\n\
+          \    # List objects in the source directory\n    response = s3.list_objects_v2(Bucket=bucket_name,\
+          \ Prefix=source_directory)\n    \n    if 'Contents' not in response:\n \
+          \       print(\"No files found in the source directory.\")\n        return\n\
+          \    \n    for obj in response['Contents']:\n        source_key = obj['Key']\n\
+          \        if source_key.endswith('.csv'):\n            # Define the destination\
+          \ key\n            file_name = os.path.basename(source_key)\n          \
+          \  destination_key = os.path.join(destination_directory, file_name)\n  \
+          \          \n            # Copy the object\n            copy_source = {'Bucket':\
+          \ bucket_name, 'Key': source_key}\n            s3.copy_object(CopySource=copy_source,\
+          \ Bucket=bucket_name, Key=destination_key)\n            \n            #\
+          \ Delete the original object\n            s3.delete_object(Bucket=bucket_name,\
+          \ Key=source_key)\n            \n            print(f'Moved {source_key}\
+          \ to {destination_key}')\n\nif __name__ == \"__main__\":\n    bucket_name\
+          \ = 'your-bucket-name'\n    source_directory = 'source-directory-path/'\n\
+          \    destination_directory = 'destination-directory-path/'\n    \n    move_csv_files(bucket_name,\
+          \ source_directory, destination_directory)\n"
+        scriptTimeout: "360"
+design:
+  components:
+    Start:
+      position:
+        x: -240
+        "y": 10
+      tempMetlId: 1
+    Alter Warehouse - Suspend:
+      position:
+        x: 60
+        "y": 110
+      tempMetlId: 3
+    Delete Tables:
+      position:
+        x: 60
+        "y": 10
+      tempMetlId: 4
+    Run Sentiment Analysis on Reviews:
+      position:
+        x: -100
+        "y": 10
+      tempMetlId: 5
+    S3 File Management via Boto3:
+      position:
+        x: 60
+        "y": -90
+      tempMetlId: 6
+  notes:
+    "1":
+      position:
+        x: -330
+        "y": -190
+      size:
+        height: 268
+        width: 200
+      theme: "yellow"
+      content: |-
+        ## Objectives
+        - Conduct sentiment analysis on the shoe reviews
+        - Conduct clean-up of Snowflake, AWS S3 environments
+    "2":
+      position:
+        x: -10
+        "y": -190
+      size:
+        height: 418
+        width: 180
+      theme: "light-yellow"
+      content: |-
+        **Clean it up!**
+        Move files, delete staging tables, suspend warehouses

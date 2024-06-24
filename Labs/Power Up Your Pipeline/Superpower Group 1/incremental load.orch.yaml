@@ -1,0 +1,442 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Map Grid Variable Values"
+      parameters:
+        componentName: "Start"
+    Map Grid Variable Values:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Grid Iterator"
+        - "Grid Iterator 3"
+      parameters:
+        componentName: "Map Grid Variable Values"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |+
+          #Updating a grid variable:
+          context.updateGridVariable('gv_state_list',[['CO'], ['OR']])
+          print(gv_state_list)
+
+        scriptTimeout: "360"
+    Create Sales Tables:
+      type: "create-table"
+      parameters:
+        componentName: "Create Sales Tables"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_${jv_state}"
+        tableType: "Permanent"
+        columns:
+        - - "TRANSACTION_ID"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "TRANSACTION_DATE"
+          - "DATE"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_NAME"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "SALE_INDICATOR"
+          - "BOOLEAN"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "STORE_ID"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "REVIEW_INDICATOR"
+          - "BOOLEAN"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_ID"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_PRICE"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "REVIEW"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Grid Iterator:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "Grid Iterator 2"
+      iterationTarget: "Create Sales Tables"
+      parameters:
+        componentName: "Grid Iterator"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "jv_state"
+        concurrency: "Concurrent"
+    S3 Load Sales:
+      type: "s3-load"
+      parameters:
+        componentName: "S3 Load Sales"
+        stage: "[Custom]"
+        authentication: "Credentials"
+        s3ObjectPrefix: "s3://mtln-techworkshops/"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_sales_${jv_state}.csv"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_${jv_state}"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter:
+        fieldDelimiter:
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat:
+        timeFormat:
+        timestampFormat:
+        escape:
+        escapeUnenclosedField:
+        trimSpace: "False"
+        fieldOptionallyEnclosed:
+        nullIf:
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        replaceInvalidCharacters: "False"
+        encodingType:
+        onError: "Abort Statement"
+        sizeLimitB:
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    Grid Iterator 2:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "And"
+      iterationTarget: "S3 Load Sales"
+      parameters:
+        componentName: "Grid Iterator 2"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "jv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Grid Iterator 3:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "Grid Iterator 2 2"
+      iterationTarget: "Create Store Lookup Tables"
+      parameters:
+        componentName: "Grid Iterator 3"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "jv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Create Store Lookup Tables:
+      type: "create-table"
+      parameters:
+        componentName: "Create Store Lookup Tables"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_${jv_state}"
+        tableType: "Permanent"
+        columns:
+        - - "STORE_ID"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "LOCATION_NAME"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Grid Iterator 2 2:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "And"
+      iterationTarget: "S3 Load Store Locations"
+      parameters:
+        componentName: "Grid Iterator 2 2"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "jv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    S3 Load Store Locations:
+      type: "s3-load"
+      parameters:
+        componentName: "S3 Load Store Locations"
+        stage: "[Custom]"
+        authentication: "Credentials"
+        s3ObjectPrefix: "s3://mtln-techworkshops/"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_store_locations_${jv_state}.csv"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_${jv_state}"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter:
+        fieldDelimiter:
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat:
+        timeFormat:
+        timestampFormat:
+        escape:
+        escapeUnenclosedField:
+        trimSpace: "False"
+        fieldOptionallyEnclosed:
+        nullIf:
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        replaceInvalidCharacters: "False"
+        encodingType:
+        onError: "Abort Statement"
+        sizeLimitB:
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    Python Pushdown:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Run incremental load xform"
+      parameters:
+        componentName: "Python Pushdown"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |-
+          # Get today's date, map to variable proj_today_date
+          from datetime import datetime, timedelta
+
+          today = datetime.now()
+
+          formatted_today = today.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
+          print(formatted_today)
+
+          context.updateVariable('proj_today_date', formatted_today)
+
+          print(proj_today_date)
+        scriptTimeout: "360"
+    And:
+      type: "and"
+      transitions:
+        unconditional:
+        - "Python Pushdown"
+      parameters:
+        componentName: "And"
+    Run incremental load xform:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run incremental load xform"
+        transformationJob: "Superpower Group 1 /incremental load xform"
+        setScalarVariables:
+        setGridVariables:
+  variables:
+    jv_state:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "jv_state DEFAULT"
+    gv_state_list:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          gvc_state_list:
+            columnType: "TEXT"
+      defaultValue:
+      - - "DEFAULT gvc_state_list"
+      - - "numero dos"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Map Grid Variable Values:
+      position:
+        x: 170
+        "y": 0
+      tempMetlId: 2
+    Create Sales Tables:
+      position:
+        x: 360
+        "y": -10
+      tempMetlId: 3
+    Grid Iterator:
+      position:
+        x: 360
+        "y": -10
+      tempMetlId: 4
+    S3 Load Sales:
+      position:
+        x: 520
+        "y": -10
+      tempMetlId: 5
+    Grid Iterator 2:
+      position:
+        x: 520
+        "y": -10
+      tempMetlId: 6
+    Grid Iterator 3:
+      position:
+        x: 360
+        "y": 130
+      tempMetlId: 7
+    Create Store Lookup Tables:
+      position:
+        x: 360
+        "y": 130
+      tempMetlId: 8
+    Grid Iterator 2 2:
+      position:
+        x: 520
+        "y": 130
+      tempMetlId: 9
+    S3 Load Store Locations:
+      position:
+        x: 520
+        "y": 130
+      tempMetlId: 10
+    Python Pushdown:
+      position:
+        x: 860
+        "y": 0
+      tempMetlId: 11
+    And:
+      position:
+        x: 700
+        "y": 0
+      tempMetlId: 12
+    Run incremental load xform:
+      position:
+        x: 1040
+        "y": 0
+      tempMetlId: 13
+  notes:
+    "1":
+      position:
+        x: 110
+        "y": -120
+      size:
+        height: 218
+        width: 160
+      theme: "light-yellow"
+      content: |-
+        *Map values to grid variable*
+        - Insert CO, OR
+    "2":
+      position:
+        x: 300
+        "y": -120
+      size:
+        height: 368
+        width: 290
+      theme: "light-yellow"
+      content: |-
+        *Feed variables into Create Table, S3 Load components*
+        - Load from CO, OR files in S3
+    "3":
+      position:
+        x: 800
+        "y": -120
+      size:
+        height: 218
+        width: 160
+      theme: "light-yellow"
+      content: "*Dynamically set yesterday's date to variable*"
+    "4":
+      position:
+        x: -10
+        "y": -270
+      size:
+        height: 128
+        width: 990
+      theme: "yellow"
+      content: "#### Objective\nIncrementally Load Colorado and Oregon state sales\
+        \ data to **SRC_CHARLIES_SHOE_EMPORIUM_SALES**\n "
