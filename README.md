@@ -3,7 +3,7 @@
 Welcome! Please use this repository to discover and introduce Matillion Best Practices within your Data Productivity Cloud environment. Many of these pipelines can be found on the [Matillion Exchange](https://exchange.matillion.com/data-productivity-cloud/pipeline/). After loading, the pipelines can then be edited to match your given use case. Learn more about Data Productivity Cloud [here](https://docs.matillion.com/data-productivity-cloud/data-productivity-cloud-overview/).
 
 ## To use in your Data Productivity Cloud environment, either:
-- Download the files locally, then [import](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/#import-a-pipeline) directly to your Data Producivity Cloud project.
+- Download the files locally, then [import](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/#import-a-pipeline) directly to your Data Productivity Cloud project.
 - Connect your Data Productivity Cloud project to a Github repository containing these pipelines.
   1. Prerequisites
     - [Installing the Matillion Data Productivity Cloud app in GitHub](https://docs.matillion.com/data-productivity-cloud/designer/docs/installing-matillion-app-github-marketplace/)
@@ -24,6 +24,16 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
     - Run sentiment analysis on unstructured conversation transcripts integrated from three different sales systems. Conversation transcripts are sourced from: Salesforce Opportunity table; Salesloft conversations API, via Amazon Transcribe; Gong API. This unstructured text will be integrated using Data Productivity Cloud pipelines that create and populate a very simple Data Vault model, with one Hub and three Satellite tables.
   - [Sentiment Analysis with Anthropic Claude 3 Sonnet using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-claude-3-sonnet/)
     - Perform sentiment analysis on your data using Anthropic Claude 3 Sonnet via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Anthropic Claude 3 Sonnet Large Language Model (LLM).
+  - [Sentiment Analysis with Titan Text Express using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-titan-text-express/)
+    - Perform sentiment analysis on your data using Titan Text Express via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Titan Text Express Large Language Model (LLM).
+  - [Sentiment Analysis with Cohere Command using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-cohere-command/)
+    - Perform sentiment analysis on your data using Cohere Command via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Cohere Command Large Language Model (LLM).
+  - [Sentiment Analysis with Meta Llama3 70B using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-meta-llama-3/)
+    - Perform sentiment analysis on your data using Meta Llama3 70B via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Meta Llama3 70B Large Language Model (LLM).
+  - [Sentiment Analysis with Mistral 7B Instruct using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-mistral-7b-instruct/)
+    - Perform sentiment analysis on your data using Mistral 7B Instruct via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Mistral 7B Instruct Large Language Model (LLM).
+  - [Sentiment Analysis with OpenAI GPT 3.5 Turbo](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-openai-gpt-3-5-turbo/)
+    - Perform sentiment analysis on your data using OpenAI GPT 3.5 Turbo. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the OpenAI GPT 3.5 Turbo Large Language Model (LLM).
 - Connectors
   - SalesForce
 - Data Engineering
