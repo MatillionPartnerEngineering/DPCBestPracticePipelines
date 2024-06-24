@@ -34,6 +34,21 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
     - Perform sentiment analysis on your data using Mistral 7B Instruct via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Mistral 7B Instruct Large Language Model (LLM).
   - [Sentiment Analysis with OpenAI GPT 3.5 Turbo](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-openai-gpt-3-5-turbo/)
     - Perform sentiment analysis on your data using OpenAI GPT 3.5 Turbo. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the OpenAI GPT 3.5 Turbo Large Language Model (LLM).
+  - [Sentiment Analysis with OpenAI GPT 4](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-openai-gpt-4/)
+    - Perform sentiment analysis on your data using OpenAI GPT 4. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the OpenAI GPT-4 Large Language Model (LLM).
+  - [Sentiment Analysis with OpenAI GPT 4 Turbo](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-openai-gpt-4-turbo/)
+    - Perform sentiment analysis on your data using OpenAI GPT 4 Turbo. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the OpenAI GPT 4 Turbo Large Language Model (LLM).
+  - [Sentiment Analysis with OpenAI GPT 4o](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-openai-gpt-4o/)
+    - Perform sentiment analysis on your data using OpenAI GPT 4o. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the OpenAI GPT 4o Large Language Model (LLM).
+  - [Snowflake Cortex Components](https://exchange.matillion.com/data-productivity-cloud/pipeline/snowflake-cortex-components/)
+    - Use Snowflake Cortex generative AI capabilities in a Data Productivity Cloud transformation pipeline. The example is from a travel company, which collects hotel stay reviews. In the screenshot below, they arrive in the Review comments component.
+  - [Unstructured text classification - Job Titles](https://exchange.matillion.com/data-productivity-cloud/pipeline/unstructured-text-classification-job-titles/)
+    - Classify job titles using zero-shot and few-shot learning with a Large Language Model (LLM) in a Data Productivity Cloud pipeline.
+
+These pipelines extract job titles from Salesforce, and run them through an LLM to
+      - Standardize them into a defined set of job titles
+      - Categorize them as ‘IC’ (Individual Contributor) or ‘Manager’
+The results are saved into a lookup table for quick reference in future.
 - Connectors
   - SalesForce
 - Data Engineering
