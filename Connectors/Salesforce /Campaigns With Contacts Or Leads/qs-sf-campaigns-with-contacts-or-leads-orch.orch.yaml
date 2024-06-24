@@ -1,0 +1,258 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Salesforce CampaignMember"
+        - "Salesforce Campaign"
+        - "Salesforce Contact"
+        - "Salesforce Lead"
+        - "Salesforce Account"
+      parameters:
+        componentName: "Start"
+    Sync:
+      type: "and"
+      transitions:
+        unconditional:
+        - "Run qs-sf-campaigns-with-contacts-or-leads-tran"
+      parameters:
+        componentName: "Sync"
+    Salesforce CampaignMember:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce CampaignMember"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "CampaignMember"
+        dataSelection:
+        - "Id"
+        - "CampaignId"
+        - "ContactId"
+        - "LeadId"
+        - "LeadOrContactId"
+        - "Status"
+        - "Type"
+        - "CreatedDate"
+        - "LastModifiedDate"
+        - "Name"
+        - "Description"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_campaignmember"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Campaign:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Campaign"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Campaign"
+        dataSelection:
+        - "Id"
+        - "CreatedDate"
+        - "LastModifiedDate"
+        - "Name"
+        - "Description"
+        - "StartDate"
+        - "EndDate"
+        - "Status"
+        - "Type"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_campaign"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Contact:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Contact"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Contact"
+        dataSelection:
+        - "Id"
+        - "Name"
+        - "AccountId"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_contact"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Lead:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Lead"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Lead"
+        dataSelection:
+        - "Id"
+        - "Name"
+        - "ConvertedDate"
+        - "ConvertedContactId"
+        - "ConvertedAccountId"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_lead"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Account:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Account"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Account"
+        dataSelection:
+        - "Id"
+        - "Name"
+        - "BillingCountry"
+        - "BillingState"
+        - "OwnerId"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_account"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Run qs-sf-campaigns-with-contacts-or-leads-tran:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run qs-sf-campaigns-with-contacts-or-leads-tran"
+        transformationJob: "qs-sf-campaigns-with-contacts-or-leads-tran"
+        setScalarVariables:
+        setGridVariables:
+  variables:
+    SalesforceOAuthName:
+      metadata:
+        type: "TEXT"
+        description: "Name of your Salesforce OAuth"
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "Your-Salesforce-OAuth-name"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Sync:
+      position:
+        x: 300
+        "y": 0
+      tempMetlId: 2
+    Salesforce CampaignMember:
+      position:
+        x: 150
+        "y": -200
+      tempMetlId: 4
+    Salesforce Campaign:
+      position:
+        x: 150
+        "y": -100
+      tempMetlId: 5
+    Salesforce Contact:
+      position:
+        x: 150
+        "y": 0
+      tempMetlId: 6
+    Salesforce Lead:
+      position:
+        x: 150
+        "y": 100
+      tempMetlId: 7
+    Salesforce Account:
+      position:
+        x: 150
+        "y": 200
+      tempMetlId: 8
+    Run qs-sf-campaigns-with-contacts-or-leads-tran:
+      position:
+        x: 450
+        "y": 0
+      tempMetlId: 9
+  notes:
+    "1":
+      position:
+        x: -300
+        "y": -110
+      size:
+        height: 130
+        width: 270
+      theme: "light-red"
+      content: "Please set the default value of the `SalesforceOAuthName` pipeline\
+        \ variable before running or validating"

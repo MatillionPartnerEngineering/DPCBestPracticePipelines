@@ -1,0 +1,216 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Salesforce OpportunityContactRole"
+        - "Salesforce Opportunity"
+        - "Salesforce Contact"
+        - "Salesforce Account"
+      parameters:
+        componentName: "Start"
+    Salesforce OpportunityContactRole:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce OpportunityContactRole"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "OpportunityContactRole"
+        dataSelection:
+        - "Id"
+        - "ContactId"
+        - "OpportunityId"
+        - "Role"
+        - "IsPrimary"
+        - "CreatedDate"
+        - "LastModifiedDate"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_opportunitycontactrole"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Opportunity:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Opportunity"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Opportunity"
+        dataSelection:
+        - "Id"
+        - "AccountId"
+        - "CloseDate"
+        - "StageName"
+        - "CreatedDate"
+        - "LastModifiedDate"
+        - "OwnerId"
+        - "Name"
+        - "Description"
+        - "Type"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_opportunity"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Contact:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Contact"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Contact"
+        dataSelection:
+        - "Id"
+        - "Name"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_contact"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Salesforce Account:
+      type: "salesforce-query"
+      transitions:
+        success:
+        - "Sync"
+      parameters:
+        componentName: "Salesforce Account"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "${SalesforceOAuthName}"
+        connectionOptions:
+        dataSource: "Account"
+        dataSelection:
+        - "Id"
+        - "Name"
+        - "BillingCountry"
+        - "BillingState"
+        - "OwnerId"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: ""
+        database: "[Environment Default]"
+        primaryKeys:
+        schema: "[Environment Default]"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        targetTable: "mtln_qs_sf_account"
+        type: "Standard"
+        warehouse: "[Environment Default]"
+        loadOptions:
+        autoDebug: "Off"
+    Sync:
+      type: "and"
+      transitions:
+        success:
+        - "Build integrated report"
+      parameters:
+        componentName: "Sync"
+    Build integrated report:
+      type: "run-transformation"
+      parameters:
+        componentName: "Build integrated report"
+        transformationJob: "qs-sf-opportunity-roles-and-contacts-all-tran"
+        setScalarVariables:
+        setGridVariables:
+  variables:
+    SalesforceOAuthName:
+      metadata:
+        type: "TEXT"
+        description: "Name of your Salesforce OAuth"
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "Your-Salesforce-OAuth-name"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        y: 0
+      tempMetlId: 1
+    Salesforce OpportunityContactRole:
+      position:
+        x: 150
+        y: -150
+      tempMetlId: 4
+    Salesforce Opportunity:
+      position:
+        x: 150
+        y: -50
+      tempMetlId: 5
+    Salesforce Contact:
+      position:
+        x: 150
+        y: 50
+      tempMetlId: 6
+    Salesforce Account:
+      position:
+        x: 150
+        y: 150
+      tempMetlId: 7
+    Sync:
+      position:
+        x: 300
+        y: 0
+      tempMetlId: 2
+    Build integrated report:
+      position:
+        x: 450
+        y: 0
+      tempMetlId: 3
+  notes:
+    1:
+      position:
+        x: -300
+        y: -110
+      size:
+        height: 140
+        width: 270
+      theme: "light-red"
+      content: "Please set the default value of the `SalesforceOAuthName` pipeline var\
+        iable before running or validating"
