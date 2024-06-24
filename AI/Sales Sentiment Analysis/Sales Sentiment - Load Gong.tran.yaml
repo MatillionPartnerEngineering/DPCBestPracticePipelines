@@ -1,0 +1,283 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    stg_sales_sentiment_gong:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sales_sentiment_gong"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sales_sentiment_gong"
+        columnNames:
+        - "prospect_id"
+        - "data"
+        timeOffset:
+    Extract Nested Data:
+      type: "extract-nested-data-sf"
+      sources:
+      - "stg_sales_sentiment_gong"
+      parameters:
+        componentName: "Extract Nested Data"
+        includeInputColumns: "Yes"
+        columns:
+        - name: "callTranscripts"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "callTranscripts"
+          isArray: "true"
+          include: "false"
+          childElements:
+          - name: "callTranscripts-element"
+            datatype: "VARIANT"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "callTranscripts-element"
+            isArray: "false"
+            include: "false"
+            childElements:
+            - name: "callId"
+              datatype: "VARCHAR"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "data"
+              aliasName: "callId"
+              isArray: "false"
+              include: "false"
+            - name: "transcript"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "data"
+              aliasName: "transcript"
+              isArray: "true"
+              include: "false"
+              childElements:
+              - name: "transcript-element"
+                datatype: "VARIANT"
+                size: "0"
+                decimalPlaces: "0"
+                columnName: "data"
+                aliasName: "transcript-element"
+                isArray: "false"
+                include: "false"
+                childElements:
+                - name: "speakerId"
+                  datatype: "VARCHAR"
+                  size: "0"
+                  decimalPlaces: "0"
+                  columnName: "data"
+                  aliasName: "speakerId"
+                  isArray: "false"
+                  include: "true"
+                - name: "sentences"
+                  datatype: "VARIANT"
+                  size: "0"
+                  decimalPlaces: "0"
+                  columnName: "data"
+                  aliasName: "sentences"
+                  isArray: "true"
+                  include: "false"
+                  childElements:
+                  - name: "sentences-element"
+                    datatype: "VARIANT"
+                    size: "0"
+                    decimalPlaces: "0"
+                    columnName: "data"
+                    aliasName: "sentences-element"
+                    isArray: "false"
+                    include: "false"
+                    childElements:
+                    - name: "start"
+                      datatype: "NUMBER"
+                      size: "0"
+                      decimalPlaces: "0"
+                      columnName: "data"
+                      aliasName: "start"
+                      isArray: "false"
+                      include: "false"
+                    - name: "end"
+                      datatype: "NUMBER"
+                      size: "0"
+                      decimalPlaces: "0"
+                      columnName: "data"
+                      aliasName: "end"
+                      isArray: "false"
+                      include: "false"
+                    - name: "text"
+                      datatype: "VARCHAR"
+                      size: "0"
+                      decimalPlaces: "0"
+                      columnName: "data"
+                      aliasName: "text"
+                      isArray: "false"
+                      include: "true"
+                - name: "topic"
+                  datatype: "VARCHAR"
+                  size: "0"
+                  decimalPlaces: "0"
+                  columnName: "data"
+                  aliasName: "topic"
+                  isArray: "false"
+                  include: "false"
+        - name: "records"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "records"
+          isArray: "false"
+          include: "false"
+          childElements:
+          - name: "totalRecords"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "totalRecords"
+            isArray: "false"
+            include: "false"
+          - name: "currentPageSize"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "currentPageSize"
+            isArray: "false"
+            include: "false"
+          - name: "currentPageNumber"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "currentPageNumber"
+            isArray: "false"
+            include: "false"
+          - name: "cursor"
+            datatype: "VARCHAR"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "data"
+            aliasName: "cursor"
+            isArray: "false"
+            include: "false"
+        - name: "requestId"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "data"
+          aliasName: "requestId"
+          isArray: "false"
+          include: "false"
+        outerJoin: "No"
+        inputAlias: "i"
+        arrayPrefix: "f"
+        castingMethod: "Fail on invalid data"
+        caseColumnAliasNames: "No"
+    Filter:
+      type: "filter"
+      sources:
+      - "Extract Nested Data"
+      parameters:
+        componentName: "Filter"
+        filterConditions:
+        - - "speakerId"
+          - "Is"
+          - "Equal to"
+          - "Prospect"
+        combineCondition: "And"
+    Calculator:
+      type: "calculator"
+      sources:
+      - "Filter"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "No"
+        calculations:
+        - - "MD5(\"prospect_id\")"
+          - "prospect_sk"
+        - - "TO_CHAR(\"prospect_id\") || '-' ||\r\nTO_CHAR(ROW_NUMBER() OVER (PARTITION\
+            \ BY \"prospect_id\" ORDER BY \"prospect_id\"))\r\n"
+          - "id"
+        - - "MD5(TO_CHAR(\"prospect_id\") || '-' ||\r\nTO_CHAR(ROW_NUMBER() OVER (PARTITION\
+            \ BY \"prospect_id\" ORDER BY \"prospect_id\"))\r\n)"
+          - "sk"
+        - - "\"text\""
+          - "text"
+        - - "CURRENT_TIMESTAMP"
+          - "load_timestamp"
+        - - "'Operations'"
+          - "record_source"
+    s_prospect_gong:
+      type: "table-update"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "s_prospect_gong"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "s_prospect_gong"
+        targetAlias: "target"
+        sourceAlias: "input"
+        joinExpression:
+        - - "\"input\".\"sk\" = \"target\".\"sk\""
+          - "Case"
+        whenMatched:
+        - - "true"
+          - "Update"
+        updateMapping:
+        - - "prospect_sk"
+          - "prospect_sk"
+        - - "id"
+          - "id"
+        - - "text"
+          - "text"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+        includeNotMatched: "Yes"
+        insertMapping:
+        - - "sk"
+          - "sk"
+        - - "prospect_sk"
+          - "prospect_sk"
+        - - "id"
+          - "id"
+        - - "text"
+          - "text"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+design:
+  components:
+    stg_sales_sentiment_gong:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Extract Nested Data:
+      position:
+        x: 140
+        "y": 0
+      tempMetlId: 2
+    Filter:
+      position:
+        x: 260
+        "y": 0
+      tempMetlId: 3
+    Calculator:
+      position:
+        x: 380
+        "y": 0
+      tempMetlId: 4
+    s_prospect_gong:
+      position:
+        x: 500
+        "y": 0
+      tempMetlId: 5

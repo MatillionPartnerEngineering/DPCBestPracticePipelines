@@ -47,7 +47,7 @@ pipeline:
         - "Run qs-full-load-salesforce-trans-to-gold"
       parameters:
         componentName: "Run qs-full-load-salesforce-trans-to-silver"
-        transformationJob: "qs-full-load-salesforce-trans-to-silver"
+        transformationJob: "Full Load Strategy Medallion Schema/qs-full-load-salesforce-trans-to-silver"
         setScalarVariables:
         setGridVariables:
     Run qs-full-load-salesforce-trans-to-gold:

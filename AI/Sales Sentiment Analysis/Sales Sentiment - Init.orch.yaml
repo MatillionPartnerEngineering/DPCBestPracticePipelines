@@ -1,0 +1,352 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Create h_prospect"
+      parameters:
+        componentName: "Start"
+    Create h_prospect:
+      type: "create-table"
+      transitions:
+        success:
+        - "Run Sales Sentiment - Load Hub"
+      parameters:
+        componentName: "Create h_prospect"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "h_prospect"
+        tableType: "Permanent"
+        columns:
+        - - "sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "Yes"
+          - ""
+        - - "prospect_id"
+          - "NUMBER"
+          - "8"
+          - "0"
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "load_timestamp"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "record_source"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Run Sales Sentiment - Load Hub:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Create s_prospect_gong"
+        - "Create s_prospect_salesloft"
+        - "Create s_prospect_opportunity"
+      parameters:
+        componentName: "Run Sales Sentiment - Load Hub"
+        transformationJob: "Sales Sentiment - Load Hub"
+        setScalarVariables:
+        setGridVariables:
+    Create s_prospect_gong:
+      type: "create-table"
+      transitions:
+        success:
+        - "Run Sales Sentiment - Load Gong"
+      parameters:
+        componentName: "Create s_prospect_gong"
+        createReplace: "Create if not exists"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "s_prospect_gong"
+        tableType: "Permanent"
+        columns:
+        - - "sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "Yes"
+          - ""
+        - - "prospect_sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "id"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "text"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "load_timestamp"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "record_source"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Create s_prospect_salesloft:
+      type: "create-table"
+      transitions:
+        success:
+        - "Run Sales Sentiment - Load Salesloft"
+      parameters:
+        componentName: "Create s_prospect_salesloft"
+        createReplace: "Create if not exists"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "s_prospect_salesloft"
+        tableType: "Permanent"
+        columns:
+        - - "sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "Yes"
+          - ""
+        - - "prospect_sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "id"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "text"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "load_timestamp"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "record_source"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Create s_prospect_opportunity:
+      type: "create-table"
+      transitions:
+        success:
+        - "Run Sales Sentiment - Load Opportunity"
+      parameters:
+        componentName: "Create s_prospect_opportunity"
+        createReplace: "Create if not exists"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "s_prospect_opportunity"
+        tableType: "Permanent"
+        columns:
+        - - "sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "Yes"
+          - ""
+        - - "prospect_sk"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "id"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "text"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "load_timestamp"
+          - "TIMESTAMP_NTZ"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        - - "record_source"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "Yes"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Run Sales Sentiment - Load Gong:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run Sales Sentiment - Load Gong"
+        transformationJob: "Sales Sentiment - Load Gong"
+        setScalarVariables:
+        setGridVariables:
+    Run Sales Sentiment - Load Salesloft:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run Sales Sentiment - Load Salesloft"
+        transformationJob: "Sales Sentiment - Load Salesloft"
+        setScalarVariables:
+        setGridVariables:
+    Run Sales Sentiment - Load Opportunity:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run Sales Sentiment - Load Opportunity"
+        transformationJob: "Sales Sentiment - Load Opportunity"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: -270
+        "y": -60
+      tempMetlId: 1
+    Create h_prospect:
+      position:
+        x: -150
+        "y": -60
+      tempMetlId: 2
+    Run Sales Sentiment - Load Hub:
+      position:
+        x: -10
+        "y": -60
+      tempMetlId: 3
+    Create s_prospect_gong:
+      position:
+        x: 130
+        "y": -170
+      tempMetlId: 4
+    Create s_prospect_salesloft:
+      position:
+        x: 130
+        "y": -60
+      tempMetlId: 5
+    Create s_prospect_opportunity:
+      position:
+        x: 130
+        "y": 60
+      tempMetlId: 6
+    Run Sales Sentiment - Load Gong:
+      position:
+        x: 280
+        "y": -170
+      tempMetlId: 7
+    Run Sales Sentiment - Load Salesloft:
+      position:
+        x: 280
+        "y": -60
+      tempMetlId: 8
+    Run Sales Sentiment - Load Opportunity:
+      position:
+        x: 280
+        "y": 60
+      tempMetlId: 9
+  notes:
+    "1":
+      position:
+        x: -300
+        "y": -360
+      size:
+        height: 138
+        width: 660
+      theme: "white"
+      content: |-
+        This pipeline assumes you have already extracted and loaded source data into the target cloud data platform.
+
+        Refer to the [Sales Sentiment Analysis](https://exchange.matillion.com/data-productivity-cloud/pipeline/sales-sentiment-analysis/) page on the Matillion Exchange for instructions on using (fabricated) sample data.

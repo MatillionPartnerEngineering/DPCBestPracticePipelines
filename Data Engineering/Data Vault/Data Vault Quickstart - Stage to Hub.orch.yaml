@@ -1,0 +1,336 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Staging Metadata"
+      parameters:
+        componentName: "Start"
+    Staging Metadata:
+      type: "table-metadata-to-grid"
+      transitions:
+        success:
+        - "Metadata Prep"
+      parameters:
+        componentName: "Staging Metadata"
+        database: "${jv_database}"
+        schema: "${jv_schema}"
+        gridVariable: "gv_viewcolumns"
+        gridVariableMapping:
+        - "Name"
+        targetTable: "${jv_staging_view_name}"
+    Metadata Prep:
+      type: "python-script"
+      transitions:
+        success:
+        - "f_dv2_hash"
+      parameters:
+        componentName: "Metadata Prep"
+        script: "# Update prvt_bkddl to the business key DDL \n# Update prvt_sortedcolnames\
+          \ to the sorted list of business key columns\n# -----------------------------------------\n\
+          \ng0 = [x[0].strip().strip('\"') for x in context.getGridVariable('gv_business_key')]\n\
+          \nbkcols = ['\"' + x + '\"' for x in sorted(g0)]\n\nprint(\"Business key\
+          \ columns: %s\" % bkcols)\n\noutddl = \"\"\nsortedcolnames = \"\"\n\nfor\
+          \ c in bkcols:\n  outddl = outddl + c + \" VARCHAR(128) NOT NULL,\"\n  sortedcolnames\
+          \ = sortedcolnames + \",\" + c\n\nsortedcolnames = sortedcolnames[1:]\n\n\
+          print(\"UX columns: %s\" % sortedcolnames)\nprint(\"Hub DDL   : %s\" % outddl)\n\
+          \ncontext.updateVariable('prvt_bkddl', outddl)\ncontext.updateVariable('prvt_sortedcolnames',\
+          \ sortedcolnames)\n\n# Update prvt_valid_clause to the validity clause\n\
+          # -----------------------------------------------\noutddl = '1 = \"__deduplicator\"\
+          '\n\nfor c in bkcols:\n  outddl = outddl + \" AND \" + c + \" IS NOT NULL\"\
+          \n\nprint(outddl)\n\ncontext.updateVariable('prvt_valid_clause', outddl)\n"
+        interpreter: "Python 3"
+        timeout: "360"
+    f_dv2_hash:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Hub DDL"
+      parameters:
+        componentName: "f_dv2_hash"
+        sqlScript: "CREATE OR REPLACE FUNCTION \"${jv_database}\".\"${jv_schema}\"\
+          .\"f_dv2_hash\"(ids array)\r\nRETURNS varchar\r\nAS $$\r\n   MD5(ARRAY_TO_STRING(ids,\
+          \ ','))\r\n$$\r\n;\r\n"
+    Hub DDL:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Satellite DDL"
+      parameters:
+        componentName: "Hub DDL"
+        sqlScript: "CREATE TABLE IF NOT EXISTS \"${jv_database}\".\"${jv_schema}\"\
+          .\"h_${jv_table_name_stub}\"\r\n(\r\n\t\"hashkey\"             VARCHAR(64)\
+          \   NOT NULL UNIQUE,\r\n    ${prvt_bkddl}\r\n\t\"load_timestamp\"      TIMESTAMP_NTZ\
+          \ NOT NULL,\r\n\t\"record_source\"       VARCHAR(64)   NOT NULL,\r\n  CONSTRAINT\
+          \ bk_h_dummy UNIQUE (${prvt_sortedcolnames})\r\n)"
+    Satellite DDL:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Error DDL"
+      parameters:
+        componentName: "Satellite DDL"
+        sqlScript: "CREATE TABLE IF NOT EXISTS \"${jv_database}\".\"${jv_schema}\"\
+          .\"s_${jv_table_name_stub}\"\r\n(\r\n\t\"hashkey\"             VARCHAR(64)\
+          \   NOT NULL,\r\n\t\"load_timestamp\"      TIMESTAMP_NTZ NOT NULL,\r\n\t\
+          \"record_source\"       VARCHAR(64)   NOT NULL,\r\n\t\"latest_from_source\"\
+          \  BOOLEAN       NOT NULL,\r\n\t\"hashdiff\"            VARCHAR(64)   NOT\
+          \ NULL,\r\n\t\"context\"             OBJECT            NULL,\r\n  CONSTRAINT\
+          \ bk_h_dummy UNIQUE (\"hashkey\", \"load_timestamp\")\r\n)"
+    Error DDL:
+      type: "sql-script"
+      transitions:
+        success:
+        - "MTI DML"
+      parameters:
+        componentName: "Error DDL"
+        sqlScript: "CREATE TABLE IF NOT EXISTS \"${jv_database}\".\"${jv_schema}\"\
+          .\"e_${jv_table_name_stub}\"\r\n(\r\n\t\"load_timestamp\"      TIMESTAMP_NTZ\
+          \ NOT NULL,\r\n\t\"record_source\"       VARCHAR(64)   NOT NULL,\r\n\t\"\
+          context\"             OBJECT            NULL\r\n)"
+    MTI DML:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Sat currency"
+      parameters:
+        componentName: "MTI DML"
+        sqlScript: "INSERT ALL\r\nWHEN ${prvt_valid_clause}\r\n     AND 0 = (SELECT\
+          \ COUNT(*)        \r\n              FROM \"${jv_database}\".\"${jv_schema}\"\
+          .\"h_${jv_table_name_stub}\" h\r\n              WHERE h.\"hashkey\" = \"\
+          newhashkey\")\r\n     THEN INTO \"${jv_database}\".\"${jv_schema}\".\"h_${jv_table_name_stub}\"\
+          \r\n                     (\"hashkey\", ${prvt_sortedcolnames}, \"load_timestamp\"\
+          , \"record_source\")\r\n               VALUES(\"newhashkey\",\r\n      \
+          \                ${prvt_sortedcolnames},\r\n                      current_timestamp,\r\
+          \n                      '${jv_record_source}')\r\nWHEN ${prvt_valid_clause}\r\
+          \n     AND 0 = (SELECT COUNT(*)        \r\n              FROM \"${jv_database}\"\
+          .\"${jv_schema}\".\"s_${jv_table_name_stub}\" s\r\n              WHERE s.\"\
+          hashkey\" = \"newhashkey\"\r\n              AND   s.\"record_source\" =\
+          \ '${jv_record_source}'\r\n              AND   s.\"latest_from_source\"\
+          \ = TRUE\r\n              AND   s.\"hashdiff\" = MD5(TO_JSON(\"__obj\"))\r\
+          \n             )\r\n     THEN INTO \"${jv_database}\".\"${jv_schema}\".\"\
+          s_${jv_table_name_stub}\"\r\n                     (\"hashkey\", \"load_timestamp\"\
+          , \"record_source\", \"latest_from_source\", \"hashdiff\", \"context\")\r\
+          \n               VALUES(\"newhashkey\",\r\n                      current_timestamp,\r\
+          \n                      '${jv_record_source}',\r\n                     \
+          \ TRUE,\r\n                      MD5(TO_JSON(\"__obj\")),\r\n          \
+          \            \"__obj\")\r\nWHEN NOT (${prvt_valid_clause})\r\n     THEN\
+          \ INTO \"${jv_database}\".\"${jv_schema}\".\"e_${jv_table_name_stub}\"\r\
+          \n                     (\"load_timestamp\", \"record_source\", \"context\"\
+          )\r\n               VALUES(current_timestamp, '${jv_record_source}', OBJECT_CONSTRUCT(*))\r\
+          \nSELECT ${prvt_sortedcolnames},\r\n       \"${jv_database}\".\"${jv_schema}\"\
+          .\"f_dv2_hash\"(array_construct(${prvt_sortedcolnames})) AS \"newhashkey\"\
+          ,\r\n       OBJECT_CONSTRUCT(*) AS \"__obj\",\r\n       ROW_NUMBER() OVER\
+          \ (PARTITION BY ${prvt_sortedcolnames} ORDER BY 1) AS \"__deduplicator\"\
+          \r\nFROM \"${jv_database}\".\"${jv_schema}\".\"${jv_staging_view_name}\"\
+          \ AS \"src\""
+    Sat currency:
+      type: "sql-script"
+      parameters:
+        componentName: "Sat currency"
+        sqlScript: "UPDATE \"${jv_database}\".\"${jv_schema}\".\"s_${jv_table_name_stub}\"\
+          \ s1\r\nSET s1.\"latest_from_source\" = s2.\"is_latest\"\r\nFROM (SELECT\
+          \ \"hashkey\",\r\n             \"record_source\",\r\n             \"hashdiff\"\
+          ,\r\n             \"load_timestamp\",\r\n             CASE ROW_NUMBER()\
+          \ OVER (PARTITION BY \"hashkey\", \"record_source\" ORDER BY \"load_timestamp\"\
+          \ DESC)\r\n             WHEN 1 THEN TRUE\r\n                    ELSE FALSE\r\
+          \n             END AS \"is_latest\"\r\n      FROM \"${jv_database}\".\"\
+          ${jv_schema}\".\"s_${jv_table_name_stub}\") s2\r\nWHERE          s1.\"hashkey\"\
+          \  = s2.\"hashkey\"\r\nAND      s1.\"record_source\"  = s2.\"record_source\"\
+          \r\nAND           s1.\"hashdiff\"  = s2.\"hashdiff\"\r\nAND     s1.\"load_timestamp\"\
+          \  = s2.\"load_timestamp\"\r\nAND s1.\"latest_from_source\" != s2.\"is_latest\""
+  variables:
+    prvt_sortedcolnames:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    prvt_valid_clause:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    jv_database:
+      metadata:
+        type: "TEXT"
+        description: "Database name"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_schema:
+      metadata:
+        type: "TEXT"
+        description: "Schema name"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_table_name_stub:
+      metadata:
+        type: "TEXT"
+        description: |-
+          Name of the DV objects (without the h_ or s_prefix)
+          E.g. "dummy" --> h_dummy, s_dummy and e_dummy
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prvt_selected_colnames:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    jv_record_source:
+      metadata:
+        type: "TEXT"
+        description: "Name of the record source"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_staging_view_name:
+      metadata:
+        type: "TEXT"
+        description: "Name of the source object"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    prvt_bkddl:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    gv_viewcolumns:
+      metadata:
+        type: "GRID"
+        description: "Column names in the source object"
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          colname:
+            columnType: "TEXT"
+      defaultValue: []
+    gv_business_key:
+      metadata:
+        type: "GRID"
+        description: "Key column names"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          name:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: -20
+        "y": 0
+      tempMetlId: 1
+    Staging Metadata:
+      position:
+        x: 100
+        "y": 0
+      tempMetlId: 2
+    Metadata Prep:
+      position:
+        x: 240
+        "y": 0
+      tempMetlId: 3
+    f_dv2_hash:
+      position:
+        x: 360
+        "y": 0
+      tempMetlId: 4
+    Hub DDL:
+      position:
+        x: 480
+        "y": 0
+      tempMetlId: 5
+    Satellite DDL:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 6
+    Error DDL:
+      position:
+        x: 720
+        "y": 0
+      tempMetlId: 7
+    MTI DML:
+      position:
+        x: 930
+        "y": 0
+      tempMetlId: 8
+    Sat currency:
+      position:
+        x: 1170
+        "y": 0
+      tempMetlId: 9
+  notes:
+    "1":
+      position:
+        x: 230
+        "y": -440
+      size:
+        height: 318
+        width: 890
+      theme: "white"
+      content: |-
+        This pipeline takes data from a staging view (or table) and populates a Data Vault 2.0 Hub, Satellite and Error table.
+
+        Scalar Inputs:
+
+        - **jv_database** Database Name
+        - **jv_schema** Schema Name
+        - **jv_record_source** Name of source system
+        - **jv_table_name_stub** Stub name of Hub (e.g. "dummy" --> h_dummy, s_dummy and e_dummy)
+        - **jv_staging_view_name** Name of the staging view (or table)
+
+        Grid Inputs:
+
+        - **gv_business_key** - List of business key columns
+    "2":
+      position:
+        x: 330
+        "y": -80
+      size:
+        height: 208
+        width: 470
+      theme: "white"
+      content: "DDL if needed"
+    "3":
+      position:
+        x: 840
+        "y": -80
+      size:
+        height: 208
+        width: 230
+      theme: "white"
+      content: "Load the Hub, Satellite and Error table with a MTI"
+    "4":
+      position:
+        x: 1100
+        "y": -80
+      size:
+        height: 208
+        width: 190
+      theme: "white"
+      content: "Update non-current Satellite records"
+    "5":
+      position:
+        x: -20
+        "y": -440
+      size:
+        height: 318
+        width: 210
+      theme: "white"
+      content: "![Hub and Satellite](https://exchange.matillion.com/data-productivity-cloud/pipeline/data-vault-2-0-pipelines/Data-Vault-2-Hub-Satellite.png)"

@@ -1,0 +1,129 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    stg_sales_sentiment_gong:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sales_sentiment_gong"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sales_sentiment_gong"
+        columnNames:
+        - "prospect_id"
+        timeOffset:
+    stg_sales_sentiment_opportunity:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sales_sentiment_opportunity"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sales_sentiment_opportunity"
+        columnNames:
+        - "prospect_id"
+        timeOffset:
+    stg_sales_sentiment_salesloft:
+      type: "table-input"
+      parameters:
+        componentName: "stg_sales_sentiment_salesloft"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sales_sentiment_salesloft"
+        columnNames:
+        - "prospect_id"
+        timeOffset:
+    Unite:
+      type: "unite"
+      sources:
+      - "stg_sales_sentiment_gong"
+      - "stg_sales_sentiment_opportunity"
+      - "stg_sales_sentiment_salesloft"
+      parameters:
+        componentName: "Unite"
+        method: "All Columns"
+        castTypes: "Yes"
+        addSourceComponentColumn: "No"
+        removeDuplicates: "Yes"
+    Calculator:
+      type: "calculator"
+      sources:
+      - "Unite"
+      parameters:
+        componentName: "Calculator"
+        includeInputColumns: "No"
+        calculations:
+        - - "MD5(\"prospect_id\")"
+          - "sk"
+        - - "\"prospect_id\""
+          - "prospect_id"
+        - - "CURRENT_TIMESTAMP"
+          - "load_timestamp"
+        - - "'Operations'"
+          - "record_source"
+    h_prospect:
+      type: "table-update"
+      sources:
+      - "Calculator"
+      parameters:
+        componentName: "h_prospect"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "h_prospect"
+        targetAlias: "target"
+        sourceAlias: "input"
+        joinExpression:
+        - - "\"input\".\"sk\" = \"target\".\"sk\""
+          - "Case"
+        whenMatched:
+        - - "true"
+          - "Update"
+        updateMapping:
+        - - "prospect_id"
+          - "prospect_id"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+        includeNotMatched: "Yes"
+        insertMapping:
+        - - "sk"
+          - "sk"
+        - - "prospect_id"
+          - "prospect_id"
+        - - "load_timestamp"
+          - "load_timestamp"
+        - - "record_source"
+          - "record_source"
+design:
+  components:
+    stg_sales_sentiment_gong:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    stg_sales_sentiment_opportunity:
+      position:
+        x: 0
+        "y": 120
+      tempMetlId: 2
+    stg_sales_sentiment_salesloft:
+      position:
+        x: 0
+        "y": 240
+      tempMetlId: 3
+    Unite:
+      position:
+        x: 200
+        "y": 120
+      tempMetlId: 4
+    Calculator:
+      position:
+        x: 340
+        "y": 120
+      tempMetlId: 5
+    h_prospect:
+      position:
+        x: 480
+        "y": 120
+      tempMetlId: 6

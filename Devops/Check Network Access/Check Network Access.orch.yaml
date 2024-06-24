@@ -1,0 +1,83 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Check Network Access"
+      parameters:
+        componentName: "Start"
+    Check Network Access:
+      type: "python-script"
+      parameters:
+        componentName: "Check Network Access"
+        script: |
+          import socket
+
+          print(f"Host: {jv_host}")
+          print(f"Port: {jv_port}")
+
+          if jv_host is None:
+              raise Exception("Host must be supplied")
+
+          if jv_port is None:
+              raise Exception("Port must be supplied")
+
+          # Try a TCP connection to an IPv4 address, with 5 second timeout
+          sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+          sk.settimeout(5)
+
+          try:
+              sk.connect((jv_host, int(jv_port)))
+          except TypeError as ix:
+              raise Exception("Port must be an integer")
+          except TimeoutError as tx:
+              raise Exception("Timed out")
+          except socket.gaierror as sgx:
+              print("Host address error")
+              raise sgx
+
+          print("Connection test successful")
+        interpreter: "Python 3"
+        timeout: "360"
+  variables:
+    jv_host:
+      metadata:
+        type: "TEXT"
+        description: "A string representing either a hostname in internet domain notation\
+          \ like 'daring.cwi.nl' or an IPv4 address like '100.50.200.5'"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_port:
+      metadata:
+        type: "NUMBER"
+        description: "Integer port number"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: -10
+        "y": 0
+      tempMetlId: 1
+    Check Network Access:
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: 80
+        "y": -120
+      size:
+        height: 248
+        width: 260
+      theme: "white"
+      content: "Check network connectivity between your [Agent](https://docs.matillion.com/data-productivity-cloud/agent/docs/agent-overview/)\
+        \ and a nominated host and port"

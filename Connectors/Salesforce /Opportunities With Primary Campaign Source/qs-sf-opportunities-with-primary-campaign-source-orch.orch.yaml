@@ -12,6 +12,20 @@ pipeline:
         - "Salesforce Campaign"
       parameters:
         componentName: "Start"
+    Sync:
+      type: "and"
+      transitions:
+        success:
+        - "Build integrated report"
+      parameters:
+        componentName: "Sync"
+    Build integrated report:
+      type: "run-transformation"
+      parameters:
+        componentName: "Build integrated report"
+        transformationJob: "qs-sf-opportunities-with-primary-campaign-source-tran"
+        setScalarVariables:
+        setGridVariables:
     Salesforce Opportunity:
       type: "salesforce-query"
       transitions:
@@ -34,14 +48,14 @@ pipeline:
         dataSourceFilter:
         combineFilters: "And"
         limit: ""
-        database: "[Environment Default]"
+        type: "Standard"
         primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
         schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_opportunity"
         stage: "[Custom]"
         stagePlatform: "Snowflake Managed"
-        targetTable: "mtln_qs_sf_opportunity"
-        type: "Standard"
-        warehouse: "[Environment Default]"
         loadOptions:
         autoDebug: "Off"
     Salesforce Account:
@@ -66,14 +80,14 @@ pipeline:
         dataSourceFilter:
         combineFilters: "And"
         limit: ""
-        database: "[Environment Default]"
+        type: "Standard"
         primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
         schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_account"
         stage: "[Custom]"
         stagePlatform: "Snowflake Managed"
-        targetTable: "mtln_qs_sf_account"
-        type: "Standard"
-        warehouse: "[Environment Default]"
         loadOptions:
         autoDebug: "Off"
     Salesforce User:
@@ -95,14 +109,14 @@ pipeline:
         dataSourceFilter:
         combineFilters: "And"
         limit: ""
-        database: "[Environment Default]"
+        type: "Standard"
         primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
         schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_user"
         stage: "[Custom]"
         stagePlatform: "Snowflake Managed"
-        targetTable: "mtln_qs_sf_user"
-        type: "Standard"
-        warehouse: "[Environment Default]"
         loadOptions:
         autoDebug: "Off"
     Salesforce Campaign:
@@ -124,30 +138,16 @@ pipeline:
         dataSourceFilter:
         combineFilters: "And"
         limit: ""
-        database: "[Environment Default]"
+        type: "Standard"
         primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
         schema: "[Environment Default]"
+        targetTable: "mtln_qs_sf_campaign"
         stage: "[Custom]"
         stagePlatform: "Snowflake Managed"
-        targetTable: "mtln_qs_sf_campaign"
-        type: "Standard"
-        warehouse: "[Environment Default]"
         loadOptions:
         autoDebug: "Off"
-    Sync:
-      type: "and"
-      transitions:
-        success:
-        - "Build integrated report"
-      parameters:
-        componentName: "Sync"
-    Build integrated report:
-      type: "run-transformation"
-      parameters:
-        componentName: "Build integrated report"
-        transformationJob: "qs-sf-opportunities-with-primary-campaign-source-tran"
-        setScalarVariables:
-        setGridVariables:
   variables:
     SalesforceOAuthName:
       metadata:
@@ -161,46 +161,46 @@ design:
     Start:
       position:
         x: 0
-        y: 0
+        "y": 0
       tempMetlId: 1
-    Salesforce Opportunity:
-      position:
-        x: 150
-        y: -150
-      tempMetlId: 4
-    Salesforce Account:
-      position:
-        x: 150
-        y: -50
-      tempMetlId: 5
-    Salesforce User:
-      position:
-        x: 150
-        y: 50
-      tempMetlId: 6
-    Salesforce Campaign:
-      position:
-        x: 150
-        y: 150
-      tempMetlId: 7
     Sync:
       position:
         x: 300
-        y: 0
+        "y": 0
       tempMetlId: 2
     Build integrated report:
       position:
         x: 450
-        y: 0
+        "y": 0
       tempMetlId: 3
+    Salesforce Opportunity:
+      position:
+        x: 150
+        "y": -150
+      tempMetlId: 4
+    Salesforce Account:
+      position:
+        x: 150
+        "y": -50
+      tempMetlId: 5
+    Salesforce User:
+      position:
+        x: 150
+        "y": 50
+      tempMetlId: 6
+    Salesforce Campaign:
+      position:
+        x: 150
+        "y": 150
+      tempMetlId: 7
   notes:
-    1:
+    "1":
       position:
         x: -300
-        y: -110
+        "y": -110
       size:
         height: 140
         width: 270
       theme: "light-red"
-      content: "Please set the default value of the `SalesforceOAuthName` pipeline var\
-        iable before running or validating"
+      content: "Please set the default value of the `SalesforceOAuthName` pipeline\
+        \ variable before running or validating"

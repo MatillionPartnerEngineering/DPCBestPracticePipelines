@@ -1,0 +1,118 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    temp_prospect_statements_openai:
+      type: "table-input"
+      parameters:
+        componentName: "temp_prospect_statements_openai"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "temp_prospect_statements_openai"
+        columnNames:
+        - "prospect_id"
+        - "DATA"
+        timeOffset:
+    Extract Nested Data:
+      type: "extract-nested-data-sf"
+      sources:
+      - "temp_prospect_statements_openai"
+      parameters:
+        componentName: "Extract Nested Data"
+        includeInputColumns: "Yes"
+        columns:
+        - name: "sentiment"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "DATA"
+          aliasName: "sentiment"
+          isArray: "false"
+          include: "true"
+        - name: "next_step"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "DATA"
+          aliasName: "next_step"
+          isArray: "false"
+          include: "true"
+        - name: "concern"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "DATA"
+          aliasName: "concern"
+          isArray: "false"
+          include: "true"
+        outerJoin: "No"
+        inputAlias: "i"
+        arrayPrefix: "f"
+        castingMethod: "Fail on invalid data"
+        caseColumnAliasNames: "No"
+    Rename:
+      type: "rename"
+      sources:
+      - "Extract Nested Data"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "prospect_id"
+          - "prospect_id"
+        - - "sentiment"
+          - "sentiment"
+        - - "next_step"
+          - "next_step"
+        - - "concern"
+          - "concern"
+        includeInputColumns: "No"
+    Aggregate:
+      type: "aggregate"
+      sources:
+      - "Rename"
+      parameters:
+        componentName: "Aggregate"
+        groupings:
+        - "concern"
+        aggregations:
+        - - "concern"
+          - "Count"
+        groupingType: "Group By"
+    Rewrite Table:
+      type: "rewrite-table"
+      sources:
+      - "Rename"
+      parameters:
+        componentName: "Rewrite Table"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "actionable_insights_sales_sentiment"
+        orderBy:
+design:
+  components:
+    temp_prospect_statements_openai:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Extract Nested Data:
+      position:
+        x: 170
+        "y": 0
+      tempMetlId: 2
+    Rename:
+      position:
+        x: 330
+        "y": 0
+      tempMetlId: 3
+    Aggregate:
+      position:
+        x: 480
+        "y": -50
+      tempMetlId: 4
+    Rewrite Table:
+      position:
+        x: 480
+        "y": 60
+      tempMetlId: 5

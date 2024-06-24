@@ -1,0 +1,65 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Salesforce Query"
+      parameters:
+        componentName: "Start"
+    Salesforce Query:
+      type: "salesforce-query"
+      parameters:
+        componentName: "Salesforce Query"
+        basicAdvancedMode: "Basic"
+        authenticationMethod: "OAuth"
+        useSandbox: "No"
+        authentication: "Your-Salesforce-OAuth-name"
+        connectionOptions:
+        dataSource: "Contact"
+        dataSelection:
+        - "Title"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: "1000"
+        type: "Standard"
+        primaryKeys:
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_salesforce_title"
+        stage: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Salesforce Query:
+      position:
+        x: 140
+        "y": 0
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: -60
+        "y": -270
+      size:
+        height: 220
+        width: 620
+      theme: "white"
+      content: |-
+        ### **Salesforce Query**
+
+        Connect to Salesforce and extract the first 1000 records from the Contact object's Title field.
+
+        The extracted data is written to a staging table called "stg_salesforce_title" in the Snowflake data warehouse under the default schema and database.
+
+        You will need to replace the `Authentication` to whatever your OAuth is named.

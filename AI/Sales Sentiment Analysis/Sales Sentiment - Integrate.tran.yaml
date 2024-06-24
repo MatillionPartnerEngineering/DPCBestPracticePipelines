@@ -1,0 +1,97 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    h_prospect:
+      type: "table-input"
+      parameters:
+        componentName: "h_prospect"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "h_prospect"
+        columnNames:
+        - "sk"
+        - "prospect_id"
+        timeOffset:
+    All Prospect Satellites:
+      type: "multi-table-input"
+      parameters:
+        componentName: "All Prospect Satellites"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        patternType: "Like"
+        pattern: "s_prospect_%"
+        castTypes: "No"
+        addSourceTable: "No"
+        columns:
+        - "prospect_sk"
+        - "text"
+    listagg:
+      type: "sql"
+      sources:
+      - "All Prospect Satellites"
+      parameters:
+        componentName: "listagg"
+        query: "SELECT \"prospect_sk\", LISTAGG(\"text\", ' ') AS \"text\"\r\nFROM\
+          \ $T{All Prospect Satellites}\r\nGROUP BY \"prospect_sk\""
+    Join:
+      type: "join"
+      sources:
+      - "h_prospect"
+      - "listagg"
+      parameters:
+        componentName: "Join"
+        mainTable: "h_prospect"
+        mainTableAlias: "h"
+        joins:
+        - - "listagg"
+          - "s"
+          - "Left"
+        joinExpressions:
+        - - "\"h\".\"sk\" = \"s\".\"prospect_sk\""
+          - "h_Left_s"
+        columnMappings:
+        - - "h.sk"
+          - "sk"
+        - - "h.prospect_id"
+          - "prospect_id"
+        - - "s.text"
+          - "text"
+    Rewrite temp_prospect_statements:
+      type: "rewrite-table"
+      sources:
+      - "Join"
+      parameters:
+        componentName: "Rewrite temp_prospect_statements"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "temp_prospect_statements"
+        orderBy:
+design:
+  components:
+    h_prospect:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    All Prospect Satellites:
+      position:
+        x: 0
+        "y": 130
+      tempMetlId: 2
+    listagg:
+      position:
+        x: 140
+        "y": 130
+      tempMetlId: 3
+    Join:
+      position:
+        x: 300
+        "y": 0
+      tempMetlId: 4
+    Rewrite temp_prospect_statements:
+      position:
+        x: 440
+        "y": 0
+      tempMetlId: 5

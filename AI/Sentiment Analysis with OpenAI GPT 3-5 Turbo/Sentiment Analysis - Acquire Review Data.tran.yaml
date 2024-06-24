@@ -1,0 +1,356 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Reviews:
+      type: "fixed-flow"
+      parameters:
+        componentName: "Reviews"
+        columns:
+        - - "id"
+          - "NUMBER"
+          - "6"
+          - "0"
+        - - "stars"
+          - "NUMBER"
+          - "1"
+          - "0"
+        - - "product"
+          - "VARCHAR"
+          - "64"
+          - "0"
+        - - "review"
+          - "VARCHAR"
+          - "1024"
+          - "0"
+        values:
+        - - "9019"
+          - "4"
+          - "Espresso Machine"
+          - "This espresso machine makes delicious coffee and looks great on my countertop.\
+            \ It's easy to operate and clean. I just wish it had a bigger water reservoir."
+        - - "9036"
+          - "3"
+          - "Coffee Maker"
+          - "This coffee maker is easy to use and brews fairly quickly. However, the\
+            \ coffee doesn't taste as rich as I hoped it would. The design is sleek,\
+            \ but it takes up more counter space than expected. Not a bad purchase,\
+            \ but there are better options out there."
+        - - "9037"
+          - "2"
+          - "Smartphone"
+          - "The phone looks sleek and is easy to use, but it heats up quickly and\
+            \ the battery drains too fast. The camera quality is also below average\
+            \ for the price point."
+        - - "9082"
+          - "5"
+          - "Robot Vacuum"
+          - "This robot vacuum has revolutionized my cleaning routine. It navigates\
+            \ my home flawlessly, picks up all kinds of debris, and I love the smart\
+            \ sensor technology. Coming home to clean floors every day is amazing!"
+        - - "9097"
+          - "3"
+          - "Electric Toothbrush"
+          - "The electric toothbrush has a good battery life and cleans fairly well.\
+            \ However, it's a bit noisy and the brushing modes don't seem significantly\
+            \ different from each other. Not bad, but not impressive either."
+        - - "9106"
+          - "2"
+          - "Wireless Headphones"
+          - "These headphones have decent sound quality, but they are extremely uncomfortable\
+            \ to wear for long periods. The battery life is disappointing, lasting\
+            \ only a few hours."
+        - - "9115"
+          - "5"
+          - "Noise-Canceling Headphones"
+          - "These headphones have transformed my daily commute. The noise-canceling\
+            \ feature is incredible, blocking out all the unwanted sounds around me.\
+            \ The sound quality is pristine, and they're so comfortable to wear for\
+            \ long periods. Highly recommended!"
+        - - "9120"
+          - "5"
+          - "Outdoor Grill"
+          - "This outdoor grill has taken my BBQs to the next level. It heats evenly,\
+            \ has ample cooking space, and the results are deliciously consistent.\
+            \ It's built to last and enhances the flavor of everything we cook. Perfect\
+            \ for any grilling enthusiast!"
+        - - "9180"
+          - "5"
+          - "Espresso Machine"
+          - "I'm in love with my new espresso machine. It makes barista-quality coffee\
+            \ right at home! The design is sleek, it's easy to use, and it produces\
+            \ consistently perfect espresso shots. My mornings have been upgraded!"
+        - - "9201"
+          - "3"
+          - "Smartphone"
+          - "The phone has a lot of great features and the camera is excellent. However,\
+            \ I've noticed that it lags sometimes and the battery drains quickly.\
+            \ It's a solid phone but has a few annoying issues."
+        - - "9228"
+          - "2"
+          - "Laptop"
+          - "This laptop has a sharp screen and slim design, but it runs very slow\
+            \ despite having good specs. The keyboard is also uncomfortable to type\
+            \ on for long periods."
+        - - "9229"
+          - "1"
+          - "Winter Jacket"
+          - "Not warm at all and the zipper broke within a week. Fabric feels cheap\
+            \ and it's definitely not water-resistant as advertised."
+        - - "9247"
+          - "4"
+          - "Laptop"
+          - "This laptop performs well for both my work and personal needs. It's fast,\
+            \ has a crisp display, and the keyboard is comfortable to type on. I just\
+            \ think it could be a bit lighter for more portability."
+        - - "9262"
+          - "2"
+          - "Electric Toothbrush"
+          - "While the toothbrush does a great job cleaning, the battery only lasts\
+            \ a few days between charges. Additionally, replacement heads are expensive\
+            \ and hard to find."
+        - - "9291"
+          - "4"
+          - "Gaming Chair"
+          - "Comfort and support are top-notch with this gaming chair. It's perfect\
+            \ for long gaming sessions and the adjustability features are very convenient.\
+            \ It was a bit challenging to assemble though."
+        - - "9346"
+          - "1"
+          - "Wireless Earbuds"
+          - "Terrible sound quality and the earbuds keep falling out. Battery life\
+            \ is nowhere near what's advertised. Very disappointed."
+        - - "9347"
+          - "1"
+          - "Hair Dryer"
+          - "Overheats quickly and smells like burning plastic when in use. Also very\
+            \ heavy and hard to handle. A complete letdown."
+        - - "9357"
+          - "1"
+          - "Blender"
+          - "Stopped working after just one week of use. The motor burnt out and customer\
+            \ service was unhelpful. Total waste of money"
+        - - "9361"
+          - "3"
+          - "Air Purifier"
+          - "This air purifier is easy to set up and does an okay job at cleaning\
+            \ the air. However, it's a bit louder than expected and filters need to\
+            \ be replaced more often than I'd like. It's decent but has room for improvement."
+        - - "9384"
+          - "2"
+          - "Fitness Tracker"
+          - "The tracker provides useful health metrics but frequently loses its connection\
+            \ to my phone. The app is unintuitive and crashes frequently, making it\
+            \ hard to track my progress."
+        - - "9424"
+          - "5"
+          - "High-Performance Blender"
+          - "This blender is simply fantastic. It handles everything from smoothies\
+            \ to soups effortlessly. The powerful motor and sharp blades ensure perfect\
+            \ consistency every time. Cleaning up is a breeze too. I use it daily!"
+        - - "9484"
+          - "4"
+          - "Vacuum Cleaner"
+          - "This vacuum cleaner really delivers on suction power and is great on\
+            \ both carpet and hardwood floors. It's lightweight and easy to maneuver.\
+            \ The only downside is that the dust canister needs to be emptied frequently."
+        - - "9487"
+          - "5"
+          - "Smart Thermostat"
+          - "This smart thermostat has made managing my home's temperature a breeze.\
+            \ It's user-friendly and the app integration is seamless. I've noticed\
+            \ a reduction in my energy bills already. A fantastic investment for any\
+            \ smart home!"
+        - - "9506"
+          - "1"
+          - "Vacuum Cleaner"
+          - "Barely picks up dust and is incredibly loud. The suction power is almost\
+            \ non-existent. Regret buying this"
+        - - "9559"
+          - "3"
+          - "Laptop"
+          - "The laptop performs adequately for everyday tasks and has a decent display.\
+            \ However, the keyboard isn't very comfortable and the trackpad is a bit\
+            \ unresponsive. For the price, it's okay; just know it's not top-tier."
+        - - "9576"
+          - "4"
+          - "Wireless Earbuds"
+          - "The sound quality and noise cancellation on these wireless earbuds are\
+            \ exceptional! I use them every day for my workouts and commute. They\
+            \ fit comfortably in my ears and the battery lasts impressively long.\
+            \ Just wish the charging case was a bit sturdier."
+        - - "9585"
+          - "3"
+          - "Fitness Tracker"
+          - "The fitness tracker is stylish and has several useful features. However,\
+            \ I found the step counter to be somewhat inaccurate and the app interface\
+            \ could be more user-friendly. It's fine for general use but not highly\
+            \ accurate."
+        - - "9595"
+          - "2"
+          - "Smartwatch"
+          - "The watch has a sleek design and good features, but the screen is difficult\
+            \ to see in bright sunlight. The watch band is also uncomfortable and\
+            \ causes irritation."
+        - - "9638"
+          - "4"
+          - "Noise-Cancelling Headphones"
+          - "These noise-cancelling headphones are a must-have for frequent travelers.\
+            \ They effectively block out unwanted noise and the sound quality is fantastic.\
+            \ The only issue is that they can feel a bit tight after extended use."
+        - - "9639"
+          - "3"
+          - "Wireless Earbuds"
+          - "I've been using these wireless earbuds for a few weeks now. The sound\
+            \ quality is decent, but the battery life is shorter than advertised.\
+            \ They fit comfortably, but I occasionally lose connection with my phone.\
+            \ Overall, they're okay for the price but not outstanding."
+        - - "9645"
+          - "2"
+          - "Yoga Mat"
+          - "The mat provides a good grip, but it started peeling after just a few\
+            \ weeks of use. It also has a strong chemical smell that hasn't gone away."
+        - - "9649"
+          - "2"
+          - "Coffee Maker"
+          - "The coffee maker brews coffee quickly, but the coffee tastes burnt even\
+            \ on the mildest settings. It's also quite noisy and difficult to clean."
+        - - "9714"
+          - "5"
+          - "Fitness Tracker"
+          - "This fitness tracker has been a game changer for my fitness routine.\
+            \ It's sleek, accurate, and the battery life is phenomenal. The health\
+            \ insights and reminders to stay active have been really motivating. Couldn't\
+            \ be happier!"
+        - - "9746"
+          - "1"
+          - "Baby Stroller"
+          - "Difficult to fold and unfold, wheels get stuck frequently. My baby doesn't\
+            \ seem comfortable in it, and it feels flimsy."
+        - - "9755"
+          - "1"
+          - "Kitchen Knife Set"
+          - "The knives became dull after just one use and started to rust after cleaning.\
+            \ Very low quality, do not recommend."
+        - - "9763"
+          - "5"
+          - "Electric Toothbrush"
+          - "I've never experienced a cleaner feeling in my mouth until I used this\
+            \ electric toothbrush. The various cleaning modes cater to all my needs,\
+            \ and the built-in timer ensures I brush for the perfect amount of time.\
+            \ Outstanding product!"
+        - - "9786"
+          - "4"
+          - "Blender"
+          - "This blender has been a game-changer in my kitchen. It effortlessly blends\
+            \ smoothies, soups, and even crushes ice with ease. Cleaning it is a breeze\
+            \ too. My only gripe is that it's a bit loud during operation."
+        - - "9819"
+          - "5"
+          - "Weighted Blanket"
+          - "This weighted blanket has significantly improved my sleep quality. It's\
+            \ incredibly cozy, and the weight is evenly distributed. I fall asleep\
+            \ faster and stay asleep longer. A perfect addition to my bedroom for\
+            \ ultimate relaxation!"
+        - - "9823"
+          - "3"
+          - "Vacuum Cleaner"
+          - "This vacuum cleaner has good suction and works well on carpets. Unfortunately,\
+            \ it's quite heavy and cumbersome to maneuver. The attachments aren't\
+            \ very intuitive to use either. It's a mixed bag for me."
+        - - "9837"
+          - "4"
+          - "Smartwatch"
+          - "I absolutely love my new smartwatch. It tracks my fitness activities\
+            \ accurately and the notifications from my phone are very handy. The design\
+            \ is sleek and stylish. I just wish the battery could last a little longer."
+        - - "9841"
+          - "2"
+          - "Blender"
+          - "While the blender works fine for soft fruits, it struggles with ice and\
+            \ other harder ingredients. The motor seems underpowered, and the build\
+            \ quality feels cheap."
+        - - "9864"
+          - "1"
+          - "Athletic Shoes"
+          - "Uncomfortable and caused blisters on my feet. Poor build quality and\
+            \ definitely not suitable for running as advertised."
+        - - "9872"
+          - "5"
+          - "DSLR Camera"
+          - "This DSLR camera has reignited my passion for photography. The image\
+            \ quality is breathtaking, the controls are intuitive, and the lens options\
+            \ are vast. Whether you're a beginner or a pro, this camera is a winner!"
+        - - "9873"
+          - "4"
+          - "Graphic Tablet"
+          - "As a designer, this graphic tablet has improved my workflow tremendously.\
+            \ The pen sensitivity and accuracy are excellent. It connects seamlessly\
+            \ with my computer. However, the surface does show signs of wear quickly."
+        - - "9925"
+          - "4"
+          - "Instant Pot"
+          - "The instant pot has made cooking so much easier and faster. I love the\
+            \ versatility and the various functions it offers. It's quite bulky though,\
+            \ and storage can be a bit of a challenge."
+        - - "9930"
+          - "3"
+          - "Gaming Mouse"
+          - "The mouse feels great in hand and has cool customizable lighting. The\
+            \ buttons are responsive, but the software is a bit clunky and the build\
+            \ quality seems average. It gets the job done but doesn't blow me away."
+        - - "9968"
+          - "1"
+          - "Smartwatch"
+          - "Keeps disconnecting from my phone and the step counter is very inaccurate.\
+            \ It's essentially useless for fitness tracking."
+        - - "9975"
+          - "1"
+          - "Smartphone Case"
+          - "The case cracked after just two days of use. Does not provide adequate\
+            \ protection for my phone. Definitely not worth the price"
+        - - "9985"
+          - "3"
+          - "Blender"
+          - "This blender works well for basic smoothies but struggles with harder\
+            \ ingredients like ice or nuts. It's also quite loud and the cleaning\
+            \ process is a bit tedious. It's average, but I might look for something\
+            \ more powerful next time."
+        - - "9991"
+          - "2"
+          - "Gaming Mouse"
+          - "This mouse is responsive and precise but stopped working properly after\
+            \ a few months. The buttons began to stick, and the software is glitchy."
+    Rewrite stg_sample_reviews:
+      type: "rewrite-table"
+      sources:
+      - "Reviews"
+      parameters:
+        componentName: "Rewrite stg_sample_reviews"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "stg_sample_reviews"
+        orderBy:
+design:
+  components:
+    Reviews:
+      position:
+        x: 40
+        "y": 30
+      tempMetlId: 1
+    Rewrite stg_sample_reviews:
+      position:
+        x: 220
+        "y": 30
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: -30
+        "y": -70
+      size:
+        height: 68
+        width: 350
+      theme: "white"
+      content: "Create a table containing the review data"
