@@ -64,4 +64,24 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
     - [Unite Lead And Contact](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-unite-lead-and-contact/)
     - [Unite Task And Event](https://exchange.matillion.com/data-productivity-cloud/pipeline/qs-sf-unite-task-and-event/)
 - Data Engineering
+  - [Data Transposing / Pivoting](https://exchange.matillion.com/data-productivity-cloud/pipeline/transpose-pivot/)
+    - Transpose or pivot data between wide and narrow representations. Three Data Productivity Cloud pipelines that demonstrate techniques for transposing (pivoting) data between wide and narrow representations. Open example transpose extract and load first.
+  - [Data Vault 2.0 Pipelines](https://exchange.matillion.com/data-productivity-cloud/pipeline/data-vault-2-0-pipelines/)
+    - Template your Hub, Link and Satellite Data Vault 2.0 tables with these Data Productivity Cloud pipelines.
+  - [Externally Managed Script](https://exchange.matillion.com/data-productivity-cloud/pipeline/externally-managed-script/)
+    - Run the contents of an externally managed SQL script with this Data Productivity Cloud pipeline.
+  - [Extract from an XML API using a variable](https://exchange.matillion.com/data-productivity-cloud/pipeline/extract-load-xml-api-variable/)
+    - Extract and load data from an XML based REST API using variables in Data Productivity Cloud pipelines.
+  - [Full Load Strategy Medallion Schema](https://exchange.matillion.com/articles/full-load-data-replication-strategy/)
+    - Full data refresh strategy with a Medallion data architecture, demonstrated using Salesforce accounts.
+  - [Incremental Load Data Replication Strategy in a Medallion data architecture](https://exchange.matillion.com/articles/incremental-load-data-replication-strategy/)
+    - Incremental load data replication is a simple strategy which involves copying changed records from a source to a target system.
+  - [XML API data in Snowflake using a File Format](https://exchange.matillion.com/data-productivity-cloud/pipeline/xml-api-snowflake-file-format/)
+    - Load, flatten and transform XML data using a Snowflake File Format. These Data Productivity Cloud pipelines extract XML data from a public RSS feed, load it into Snowflake using a File Format, and then transform and flatten it. An RSS feed is a simple REST API.
+  - [XML API data in Snowflake using a UDF to convert to JSON](https://exchange.matillion.com/data-productivity-cloud/pipeline/xml-api-snowflake-udf-json/)
+    - Load, flatten and transform XML data using a Snowflake UDF to convert XML to JSON. These Data Productivity Cloud pipelines extract XML data from a public RSS feed, load it into Snowflake using a File Format, and then transform and flatten it by converting the XML to JSON using a User Defined Function (UDF). An RSS feed is a simple REST API.  
 - Devops
+  - [Check Network Access](https://exchange.matillion.com/data-productivity-cloud/pipeline/check-network-access/)
+    - Check connectivity between your Data Productivity Cloud agent and a network data source.
+  - [Find Agent IP Address](https://exchange.matillion.com/data-productivity-cloud/pipeline/find-agent-ip-address/)
+    - *Note: Customer Hosted Agent Only* Find the public IP address of your Data Productivity Cloud Agent.
