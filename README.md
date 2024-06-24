@@ -15,6 +15,6 @@ Use this repository to discover and introduce Matillion Best Practices within yo
 ## Best Practice Pipelines Library
 - AI
 - Connectors
-- - SalesForce
+  - SalesForce
 - Data Engineering
 - Devops
