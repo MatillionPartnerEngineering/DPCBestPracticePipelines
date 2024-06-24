@@ -1,0 +1,63 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Get IP Address"
+      parameters:
+        componentName: "Start"
+    Get IP Address:
+      type: "python-script"
+      parameters:
+        componentName: "Get IP Address"
+        script: |
+          import requests
+
+          response = requests.get("https://devrel.matillion.com/api/getmyip", headers={})
+
+          if(200 == response.status_code):
+            if(response.text is None):
+              raise Exception("No response text")
+            else:
+              if(len(response.text) > 7 and len(response.text) < 16):
+                print(response.text)
+                context.updateVariable('jv_public_ip_address', response.text)
+              else:
+                raise Exception("Response was not an IP address")
+          else:
+            raise Exception("Could not get public IP address. Maybe no access to the internet")
+        interpreter: "Python 3"
+        timeout: "360"
+  variables:
+    jv_public_ip_address:
+      metadata:
+        type: "TEXT"
+        description: "Holds the public IP address"
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: -470
+        "y": -70
+      tempMetlId: 1
+    Get IP Address:
+      position:
+        x: -320
+        "y": -70
+      tempMetlId: 2
+  notes:
+    "1":
+      position:
+        x: -390
+        "y": -160
+      size:
+        height: 208
+        width: 230
+      theme: "white"
+      content: "Display the public IP address of your [Agent](https://docs.matillion.com/data-productivity-cloud/agent/docs/agent-overview/)"
