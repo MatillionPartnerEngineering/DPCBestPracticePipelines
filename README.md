@@ -13,4 +13,8 @@ Use this repository to discover and introduce Matillion Best Practices within yo
 - Your [Pipelines](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/) should populate with Best Practice pipelines, available for editing according to your use case.
 
 ## Best Practice Pipelines Library
-Coming soon!
+- AI
+- Connectors
+- - SalesForce
+- Data Engineering
+- Devops
