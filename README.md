@@ -16,8 +16,10 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
   2. Directions
     - Fork this repository (referred to as "forked repository" for the following steps), making it available to your Github account. 
     - [Create a new Matillion project](https://docs.matillion.com/data-productivity-cloud/designer/docs/projects/#add-a-new-project), setting it up with Advanced settings to allow the connection to a remote Github repo.
-    - From within the Designer UI, select [Git > Pull remote changes](https://docs.matillion.com/data-productivity-cloud/designer/docs/git-pull/)
+    - Set the forked repository as the connected repo.
+    - From within the Designer UI, select [Git > Pull remote changes](https://docs.matillion.com/data-productivity-cloud/designer/docs/git-pull/).
     - Your [Pipelines](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/) should populate with Best Practice pipelines, available for editing according to your use case.
+    - The forked repository will keep you updated on any changes to the **DPC Best Practice Pipelines** repository, allowing for easy & efficient merges of latest code.
 
 ## Best Practice Pipelines Library
 - AI
