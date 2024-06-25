@@ -3,7 +3,9 @@
 Welcome! Please use this repository to discover and introduce Matillion Best Practices within your Data Productivity Cloud environment. Many of these pipelines can be found on the [Matillion Exchange](https://exchange.matillion.com/data-productivity-cloud/pipeline/). After loading, the pipelines can then be edited to match your given use case. Learn more about Data Productivity Cloud [here](https://docs.matillion.com/data-productivity-cloud/data-productivity-cloud-overview/).
 
 ## To use in your Data Productivity Cloud environment, either:
-- Download the files locally, then [import](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/#import-a-pipeline) directly to your Data Productivity Cloud project.
+- Export & Import Files
+  1. Within this page click Code > Download to Zip
+  2. [Import](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/#import-a-pipeline) directly to your Data Productivity Cloud project.
 - Connect your Data Productivity Cloud project to a Github repository containing these pipelines.
   1. Prerequisites
     - [Installing the Matillion Data Productivity Cloud app in GitHub](https://docs.matillion.com/data-productivity-cloud/designer/docs/installing-matillion-app-github-marketplace/)
