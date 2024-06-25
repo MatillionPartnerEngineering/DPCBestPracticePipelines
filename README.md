@@ -6,6 +6,9 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
 - Export & Import Files
   1. Within this page click Code > Download to Zip
   2. [Import](https://docs.matillion.com/data-productivity-cloud/designer/docs/pipelines/#import-a-pipeline) directly to your Data Productivity Cloud project.
+
+**OR**
+
 - Connect your Data Productivity Cloud project to a Github repository containing these pipelines.
   1. Prerequisites
     - [Installing the Matillion Data Productivity Cloud app in GitHub](https://docs.matillion.com/data-productivity-cloud/designer/docs/installing-matillion-app-github-marketplace/)
