@@ -28,7 +28,7 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
   - [Olympic Athlete Data Analysis](https://exchange.matillion.com/data-productivity-cloud/pipeline/olympic-athlete-data-analysis/)
     - Analyze historical Olympic athlete data with this set of Data Productivity Cloud pipelines. These pipelines find the most successful athletes, by medal count, in a historical Olympic Games of your choice.
   - [Sales Sentiment Analysis](https://exchange.matillion.com/data-productivity-cloud/pipeline/sales-sentiment-analysis/)
-    - Run sentiment analysis on unstructured conversation transcripts integrated from three different sales systems. Conversation transcripts are sourced from: Salesforce Opportunity table; Salesloft conversations API, via Amazon Transcribe; Gong API. This unstructured text will be integrated using Data Productivity Cloud pipelines that create and populate a very simple Data Vault model, with one Hub and three Satellite tables.
+    - Run sentiment analysis on unstructured conversation transcripts integrated from three different sales systems.
   - [Sentiment Analysis with Anthropic Claude 3 Sonnet using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-claude-3-sonnet/)
     - Perform sentiment analysis on your data using Anthropic Claude 3 Sonnet via Amazon Bedrock. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the Anthropic Claude 3 Sonnet Large Language Model (LLM).
   - [Sentiment Analysis with Titan Text Express using Amazon Bedrock](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-bedrock-titan-text-express/)
@@ -48,7 +48,7 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
   - [Sentiment Analysis with OpenAI GPT 4o](https://exchange.matillion.com/data-productivity-cloud/pipeline/sentiment-analysis-openai-gpt-4o/)
     - Perform sentiment analysis on your data using OpenAI GPT 4o. This set of Data Productivity Cloud pipelines performs sentiment analysis on a set of product review data using the OpenAI GPT 4o Large Language Model (LLM).
   - [Snowflake Cortex Components](https://exchange.matillion.com/data-productivity-cloud/pipeline/snowflake-cortex-components/)
-    - Use Snowflake Cortex generative AI capabilities in a Data Productivity Cloud transformation pipeline. The example is from a travel company, which collects hotel stay reviews. In the screenshot below, they arrive in the Review comments component.
+    - Use Snowflake Cortex generative AI capabilities in a Data Productivity Cloud transformation pipeline. The example is from a travel company, which collects hotel stay reviews.
   - [Unstructured text classification - Job Titles](https://exchange.matillion.com/data-productivity-cloud/pipeline/unstructured-text-classification-job-titles/)
     - Classify job titles using zero-shot and few-shot learning with a Large Language Model (LLM) in a Data Productivity Cloud pipeline. These pipelines extract job titles from Salesforce, and run them through an LLM to:
       - Standardize them into a defined set of job titles
