@@ -92,3 +92,6 @@ Welcome! Please use this repository to discover and introduce Matillion Best Pra
     - Check connectivity between your Data Productivity Cloud agent and a network data source.
   - [Find Agent IP Address](https://exchange.matillion.com/data-productivity-cloud/pipeline/find-agent-ip-address/)
     - *Note: Customer Hosted Agent Only* Find the public IP address of your Data Productivity Cloud Agent.
+- Labs
+  - Powered Up Pipelines
+    - Best practices webinar taking place on 25 June 2024.
