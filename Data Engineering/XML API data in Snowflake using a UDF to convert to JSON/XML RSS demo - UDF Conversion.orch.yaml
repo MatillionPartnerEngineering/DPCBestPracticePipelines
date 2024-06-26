@@ -26,7 +26,8 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run XML RSS demo - UDF Transformation"
-        transformationJob: "XML RSS demo - UDF Transformation"
+        transformationJob: "Data Engineering/XML API data in Snowflake using a UDF\
+          \ to convert to JSON/XML RSS demo - UDF Transformation"
         setScalarVariables:
         setGridVariables:
 design:

@@ -17,7 +17,8 @@ pipeline:
         - "Stage to Hub - bubble_event"
       parameters:
         componentName: "Run Data Vault Quickstart - Create Sample Data"
-        transformationJob: "Data Vault Quickstart - Create Sample Data"
+        transformationJob: "Data Engineering/Data Vault/Data Vault Quickstart - Create\
+          \ Sample Data"
         setScalarVariables:
         setGridVariables:
     Stage to Hub - equipment:
@@ -27,7 +28,8 @@ pipeline:
         - "And"
       parameters:
         componentName: "Stage to Hub - equipment"
-        orchestrationJob: "Data Vault Quickstart - Stage to Hub"
+        orchestrationJob: "Data Engineering/Data Vault/Data Vault Quickstart - Stage\
+          \ to Hub"
         setScalarVariables:
         - - "jv_database"
           - "NAME_OF_YOUR_DATABASE"
@@ -51,7 +53,8 @@ pipeline:
         - "And"
       parameters:
         componentName: "Stage to Hub - bubble_event"
-        orchestrationJob: "Data Vault Quickstart - Stage to Hub"
+        orchestrationJob: "Data Engineering/Data Vault/Data Vault Quickstart - Stage\
+          \ to Hub"
         setScalarVariables:
         - - "jv_database"
           - "NAME_OF_YOUR_DATABASE"
@@ -73,7 +76,8 @@ pipeline:
       type: "run-orchestration"
       parameters:
         componentName: "Stage to Link"
-        orchestrationJob: "Data Vault Quickstart - Stage to Link"
+        orchestrationJob: "Data Engineering/Data Vault/Data Vault Quickstart - Stage\
+          \ to Link"
         setScalarVariables:
         - - "jv_database"
           - "NAME_OF_YOUR_DATABASE"

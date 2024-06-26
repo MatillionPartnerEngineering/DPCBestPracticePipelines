@@ -192,7 +192,7 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run qs-sf-campaigns-with-contacts-or-leads-tran"
-        transformationJob: "qs-sf-campaigns-with-contacts-or-leads-tran"
+        transformationJob: "Connectors/Salesforce /Campaigns With Contacts Or Leads/qs-sf-campaigns-with-contacts-or-leads-tran"
         setScalarVariables:
         setGridVariables:
   variables:

@@ -68,7 +68,7 @@ pipeline:
         - "Create s_prospect_opportunity"
       parameters:
         componentName: "Run Sales Sentiment - Load Hub"
-        transformationJob: "Sales Sentiment - Load Hub"
+        transformationJob: "AI/Sales Sentiment Analysis/Sales Sentiment - Load Hub"
         setScalarVariables:
         setGridVariables:
     Create s_prospect_gong:
@@ -273,21 +273,21 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run Sales Sentiment - Load Gong"
-        transformationJob: "Sales Sentiment - Load Gong"
+        transformationJob: "AI/Sales Sentiment Analysis/Sales Sentiment - Load Gong"
         setScalarVariables:
         setGridVariables:
     Run Sales Sentiment - Load Salesloft:
       type: "run-transformation"
       parameters:
         componentName: "Run Sales Sentiment - Load Salesloft"
-        transformationJob: "Sales Sentiment - Load Salesloft"
+        transformationJob: "AI/Sales Sentiment Analysis/Sales Sentiment - Load Salesloft"
         setScalarVariables:
         setGridVariables:
     Run Sales Sentiment - Load Opportunity:
       type: "run-transformation"
       parameters:
         componentName: "Run Sales Sentiment - Load Opportunity"
-        transformationJob: "Sales Sentiment - Load Opportunity"
+        transformationJob: "AI/Sales Sentiment Analysis/Sales Sentiment - Load Opportunity"
         setScalarVariables:
         setGridVariables:
 design:

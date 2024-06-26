@@ -1,0 +1,78 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Olympic Data - Extract Load"
+      parameters:
+        componentName: "Start"
+    Run Olympic Data - Extract Load:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Olympic Data - Transform"
+      parameters:
+        componentName: "Run Olympic Data - Extract Load"
+        orchestrationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Extract\
+          \ Load"
+        setScalarVariables:
+        setGridVariables:
+    Run Olympic Data - Transform:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Run Olympic Data - Utilize Amazon Bedrock"
+      parameters:
+        componentName: "Run Olympic Data - Transform"
+        transformationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Transform"
+        setScalarVariables:
+        setGridVariables:
+    Run Olympic Data - Utilize Amazon Bedrock:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Olympic Data - Utilize OpenAI"
+      parameters:
+        componentName: "Run Olympic Data - Utilize Amazon Bedrock"
+        orchestrationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Utilize\
+          \ Amazon Bedrock"
+        setScalarVariables:
+        setGridVariables:
+    Run Olympic Data - Utilize OpenAI:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Run Olympic Data - Utilize OpenAI"
+        orchestrationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Utilize\
+          \ OpenAI"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: -420
+        "y": -20
+      tempMetlId: 1
+    Run Olympic Data - Extract Load:
+      position:
+        x: -220
+        "y": -20
+      tempMetlId: 2
+    Run Olympic Data - Transform:
+      position:
+        x: -10
+        "y": -20
+      tempMetlId: 3
+    Run Olympic Data - Utilize Amazon Bedrock:
+      position:
+        x: 210
+        "y": -20
+      tempMetlId: 4
+    Run Olympic Data - Utilize OpenAI:
+      position:
+        x: 410
+        "y": -20
+      tempMetlId: 5

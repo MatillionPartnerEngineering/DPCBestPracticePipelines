@@ -138,7 +138,7 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run qs-sf-unite-lead-and-contact-tran"
-        transformationJob: "qs-sf-unite-lead-and-contact-tran"
+        transformationJob: "Connectors/Salesforce /Unite Lead And Contact/qs-sf-unite-lead-and-contact-tran"
         setScalarVariables:
         setGridVariables:
   variables:

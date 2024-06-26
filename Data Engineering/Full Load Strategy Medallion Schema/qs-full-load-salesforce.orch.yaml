@@ -47,14 +47,14 @@ pipeline:
         - "Run qs-full-load-salesforce-trans-to-gold"
       parameters:
         componentName: "Run qs-full-load-salesforce-trans-to-silver"
-        transformationJob: "Full Load Strategy Medallion Schema/qs-full-load-salesforce-trans-to-silver"
+        transformationJob: "Data Engineering/Full Load Strategy Medallion Schema/qs-full-load-salesforce-trans-to-silver"
         setScalarVariables:
         setGridVariables:
     Run qs-full-load-salesforce-trans-to-gold:
       type: "run-transformation"
       parameters:
         componentName: "Run qs-full-load-salesforce-trans-to-gold"
-        transformationJob: "qs-full-load-salesforce-trans-to-gold"
+        transformationJob: "Data Engineering/Full Load Strategy Medallion Schema/qs-full-load-salesforce-trans-to-gold"
         setScalarVariables:
         setGridVariables:
     Create Silver ODS Table:

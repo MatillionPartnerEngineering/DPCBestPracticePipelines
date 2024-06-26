@@ -51,14 +51,14 @@ pipeline:
         - "Silver-to-Gold"
       parameters:
         componentName: "Bronze-to-Silver"
-        transformationJob: "qs-incremental-load-salesforce-trans-to-silver"
+        transformationJob: "Data Engineering/Incremental Load Strategy Medallion Schema/qs-incremental-load-salesforce-trans-to-silver"
         setScalarVariables:
         setGridVariables:
     Silver-to-Gold:
       type: "run-transformation"
       parameters:
         componentName: "Silver-to-Gold"
-        transformationJob: "qs-incremental-load-salesforce-trans-to-gold"
+        transformationJob: "Data Engineering/Incremental Load Strategy Medallion Schema/qs-incremental-load-salesforce-trans-to-gold"
         setScalarVariables:
         setGridVariables:
     Create Silver ODS Table:

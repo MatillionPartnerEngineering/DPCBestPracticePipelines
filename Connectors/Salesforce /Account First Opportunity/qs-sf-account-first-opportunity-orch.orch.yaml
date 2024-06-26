@@ -22,7 +22,7 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Build integrated report"
-        transformationJob: "qs-sf-account-first-opportunity-tran"
+        transformationJob: "Connectors/Salesforce /Account First Opportunity/qs-sf-account-first-opportunity-tran"
         setScalarVariables:
         setGridVariables:
     Salesforce Account:

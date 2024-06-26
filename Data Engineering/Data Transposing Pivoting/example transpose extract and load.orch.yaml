@@ -486,11 +486,12 @@ pipeline:
         - "Run example transpose transformation 2 narrow to wide"
       parameters:
         componentName: "Run example transpose transformation 1 wide to narrow"
-        transformationJob: "Matillion Exchange/Snowflake/Transposing/example transpose\
+        transformationJob: "Data Engineering/Data Transposing Pivoting/example transpose\
           \ transformation 1 wide to narrow"
         setScalarVariables:
         - - "jv_col_list"
           - "${prvt_cols_dq}"
+        setGridVariables:
     S3 Load:
       type: "s3-load"
       transitions:
@@ -550,13 +551,14 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run example transpose transformation 2 narrow to wide"
-        transformationJob: "Matillion Exchange/Snowflake/Transposing/example transpose\
+        transformationJob: "Data Engineering/Data Transposing Pivoting/example transpose\
           \ transformation 2 narrow to wide"
         setScalarVariables:
         - - "jv_col_list"
           - "${prvt_cols_sq}"
         - - "jv_pivot_aliases"
           - "${prvt_pivot_aliases}"
+        setGridVariables:
     Set prvt_cols_sq:
       type: "query-to-scalar"
       transitions:

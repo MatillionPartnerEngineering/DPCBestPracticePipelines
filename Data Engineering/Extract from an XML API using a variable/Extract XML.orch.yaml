@@ -41,7 +41,8 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Load XML"
-        transformationJob: "Load XML"
+        transformationJob: "Data Engineering/Extract from an XML API using a variable/Load\
+          \ XML"
         setScalarVariables:
         - - "jv_xml"
           - "${prvt_xml}"

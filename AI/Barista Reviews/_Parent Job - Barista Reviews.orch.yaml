@@ -1,0 +1,75 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Barista Reviews - Extract and Load"
+      parameters:
+        componentName: "Start"
+    Run Barista Reviews - Extract and Load:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Barista Reviews - Azure OpenAI"
+      parameters:
+        componentName: "Run Barista Reviews - Extract and Load"
+        orchestrationJob: "AI/Barista Reviews/Barista Reviews - Extract and Load"
+        setScalarVariables:
+        setGridVariables:
+    Run Barista Reviews - Azure OpenAI:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Barista Reviews - OpenAI"
+      parameters:
+        componentName: "Run Barista Reviews - Azure OpenAI"
+        orchestrationJob: "AI/Barista Reviews/Barista Reviews - Azure OpenAI"
+        setScalarVariables:
+        setGridVariables:
+    Run Barista Reviews - OpenAI:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Barista Reviews - Transform and Integrate"
+      parameters:
+        componentName: "Run Barista Reviews - OpenAI"
+        orchestrationJob: "AI/Barista Reviews/Barista Reviews - OpenAI"
+        setScalarVariables:
+        setGridVariables:
+    Run Barista Reviews - Transform and Integrate:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run Barista Reviews - Transform and Integrate"
+        transformationJob: "AI/Barista Reviews/Barista Reviews - Transform and Integrate"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Run Barista Reviews - Extract and Load:
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+    Run Barista Reviews - Azure OpenAI:
+      position:
+        x: 390
+        "y": 0
+      tempMetlId: 3
+    Run Barista Reviews - OpenAI:
+      position:
+        x: 590
+        "y": 0
+      tempMetlId: 4
+    Run Barista Reviews - Transform and Integrate:
+      position:
+        x: 790
+        "y": 0
+      tempMetlId: 5

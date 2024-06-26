@@ -10,32 +10,33 @@ pipeline:
       parameters:
         componentName: "Start"
     OpenAI Prompt:
-      type: "ai-prompt"
+      type: "openai-ai-prompt"
       parameters:
         componentName: "OpenAI Prompt"
-        service:
-          provider: "OpenAI"
-          openAI:
-            model: "gpt-4"
-            apiKey: "OpenAI-Key"
-            temperature: "1"
-            "n": "1"
-            maxTokens:
+        openAI:
+          model: "gpt-4"
+          apiKey: "OpenAI-Key"
+          temperature: "1"
+          topP: "1"
+          "n": "1"
+          maxTokens:
         source:
           snowflake:
             database: "[Environment Default]"
             schema: "[Environment Default]"
             table: "STG_BARISTA_REVIEWS"
             keyColumn: "name"
-            limit: ""
+            limit: "1000"
         promptContext:
           userContext: "You're a marketing analyst reviewing user comments from a\
-            \ well-known barista company."
+            \  well-known barista company."
           inputs:
           - - "name"
             - "name"
+            - ""
           - - "review"
             - "review"
+            - ""
           outputFormat: "JSON"
           outputs:
           - - "anger_score"
@@ -59,7 +60,7 @@ pipeline:
               \ blank if you can't find any."
           - - "wont_return"
             - "Answer \"Yes\" if the user indicates that they will never come again\
-              \ to the shop. Otherwise, answer \"No\". "
+              \ to the shop. Otherwise, answer \"No\"."
         destination:
           snowflake:
             database: "[Environment Default]"
@@ -77,7 +78,7 @@ design:
       tempMetlId: 1
     OpenAI Prompt:
       position:
-        x: -760
+        x: -720
         "y": -90
       tempMetlId: 2
   notes:

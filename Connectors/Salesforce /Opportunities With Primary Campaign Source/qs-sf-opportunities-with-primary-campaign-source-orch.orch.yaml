@@ -23,7 +23,8 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Build integrated report"
-        transformationJob: "qs-sf-opportunities-with-primary-campaign-source-tran"
+        transformationJob: "Connectors/Salesforce /Opportunities With Primary Campaign\
+          \ Source/qs-sf-opportunities-with-primary-campaign-source-tran"
         setScalarVariables:
         setGridVariables:
     Salesforce Opportunity:

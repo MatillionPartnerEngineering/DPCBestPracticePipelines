@@ -169,7 +169,7 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run qs-sf-unite-task-and-event-tran"
-        transformationJob: "qs-sf-unite-task-and-event-tran"
+        transformationJob: "Connectors/Salesforce /Unite Task And Event/qs-sf-unite-task-and-event-tran"
         setScalarVariables:
         setGridVariables:
   variables:
