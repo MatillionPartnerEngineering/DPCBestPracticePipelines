@@ -1,0 +1,446 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Create Table charlies_shoe_emporium_shoe_specifications"
+        - "Create Table charlies_shoe_emporium_store_locations"
+        - "Create Table charlies_shoe_emporium_sales"
+      parameters:
+        componentName: "Start"
+    S3 Load charlies_shoe_emporium_sales:
+      type: "s3-load"
+      transitions:
+        success:
+        - "And"
+      parameters:
+        componentName: "S3 Load charlies_shoe_emporium_sales"
+        stage: "[Custom]"
+        authentication: "Credentials"
+        s3ObjectPrefix: "s3://mtln-techworkshops/"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_sales_FL.csv"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_FL"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter:
+        fieldDelimiter:
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat:
+        timeFormat:
+        timestampFormat:
+        escape:
+        escapeUnenclosedField:
+        trimSpace: "False"
+        fieldOptionallyEnclosed:
+        nullIf:
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        replaceInvalidCharacters: "False"
+        encodingType:
+        onError: "Abort Statement"
+        sizeLimitB:
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    Create Table charlies_shoe_emporium_sales:
+      type: "create-table"
+      transitions:
+        success:
+        - "S3 Load charlies_shoe_emporium_sales"
+      parameters:
+        componentName: "Create Table charlies_shoe_emporium_sales"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_FL"
+        tableType: "Permanent"
+        columns:
+        - - "TRANSACTION_ID"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "TRANSACTION_DATE"
+          - "DATE"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_NAME"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "SALE_INDICATOR"
+          - "BOOLEAN"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "STORE_ID"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "REVIEW_INDICATOR"
+          - "BOOLEAN"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_ID"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_PRICE"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "REVIEW"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    S3 Load charlies_shoe_emporium_shoe_specifications:
+      type: "s3-load"
+      transitions:
+        success:
+        - "And"
+      parameters:
+        componentName: "S3 Load charlies_shoe_emporium_shoe_specifications"
+        stage: "[Custom]"
+        authentication: "Credentials"
+        s3ObjectPrefix: "s3://mtln-techworkshops/"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_shoe_specifications.csv"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CHARLIES_SHOE_EMPORIUM_SHOE_SPECIFICATIONS"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter:
+        fieldDelimiter:
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat:
+        timeFormat:
+        timestampFormat:
+        escape:
+        escapeUnenclosedField:
+        trimSpace: "False"
+        fieldOptionallyEnclosed:
+        nullIf:
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        replaceInvalidCharacters: "False"
+        encodingType:
+        onError: "Abort Statement"
+        sizeLimitB:
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    Create Table charlies_shoe_emporium_shoe_specifications:
+      type: "create-table"
+      transitions:
+        success:
+        - "S3 Load charlies_shoe_emporium_shoe_specifications"
+      parameters:
+        componentName: "Create Table charlies_shoe_emporium_shoe_specifications"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "CHARLIES_SHOE_EMPORIUM_SHOE_SPECIFICATIONS"
+        tableType: "Permanent"
+        columns:
+        - - "PRODUCT_NAME"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRIMARY_COLOR"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "SECONDARY_COLOR"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "PRODUCT_LINE"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "COMFORT"
+          - "FLOAT"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "RESPONSIVENESS"
+          - "FLOAT"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "WEIGHT_OZ"
+          - "FLOAT"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "CUSHIONING"
+          - "FLOAT"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "BREATHABILITY"
+          - "FLOAT"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    S3 Load charlies_shoe_emporium_store_locations:
+      type: "s3-load"
+      transitions:
+        success:
+        - "And"
+      parameters:
+        componentName: "S3 Load charlies_shoe_emporium_store_locations"
+        stage: "[Custom]"
+        authentication: "Credentials"
+        s3ObjectPrefix: "s3://mtln-techworkshops/"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_store_locations_FL.csv"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_FL"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter:
+        fieldDelimiter:
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat:
+        timeFormat:
+        timestampFormat:
+        escape:
+        escapeUnenclosedField:
+        trimSpace: "False"
+        fieldOptionallyEnclosed:
+        nullIf:
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        replaceInvalidCharacters: "False"
+        encodingType:
+        onError: "Abort Statement"
+        sizeLimitB:
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    Create Table charlies_shoe_emporium_store_locations:
+      type: "create-table"
+      transitions:
+        success:
+        - "S3 Load charlies_shoe_emporium_store_locations"
+      parameters:
+        componentName: "Create Table charlies_shoe_emporium_store_locations"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_FL"
+        tableType: "Permanent"
+        columns:
+        - - "STORE_ID"
+          - "NUMBER"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "LOCATION_NAME"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation:
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    Get Today Date - 5 days:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Run charlie FL incremental load xform"
+      parameters:
+        componentName: "Get Today Date - 5 days"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          from datetime import datetime, timedelta
+
+          # Get today's date
+          today = datetime.now()
+
+          #subtract 5 days
+          yesterday = today - timedelta(days=5)
+
+          # Format yesterday's date
+          formatted_yesterday = yesterday.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
+          print(formatted_yesterday)
+
+          context.updateVariable('proj_today_date', formatted_yesterday)
+
+          print(proj_today_date)
+          # Updating a grid variable:
+          #   context.updateGridVariable('mygridvar',[['list','of'],['lists','!']])
+          ###)
+        scriptTimeout: "360"
+    Run charlie FL incremental load xform:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run charlie FL incremental load xform"
+        transformationJob: "prep data/charlie FL incremental load xform"
+        setScalarVariables:
+        setGridVariables:
+    And:
+      type: "and"
+      transitions:
+        unconditional:
+        - "Get Today Date - 5 days"
+      parameters:
+        componentName: "And"
+design:
+  components:
+    Start:
+      position:
+        x: -110
+        "y": 0
+      tempMetlId: 1
+    S3 Load charlies_shoe_emporium_sales:
+      position:
+        x: 340
+        "y": 0
+      tempMetlId: 2
+    Create Table charlies_shoe_emporium_sales:
+      position:
+        x: 140
+        "y": 0
+      tempMetlId: 3
+    S3 Load charlies_shoe_emporium_shoe_specifications:
+      position:
+        x: 340
+        "y": 120
+      tempMetlId: 4
+    Create Table charlies_shoe_emporium_shoe_specifications:
+      position:
+        x: 140
+        "y": 120
+      tempMetlId: 5
+    S3 Load charlies_shoe_emporium_store_locations:
+      position:
+        x: 340
+        "y": 240
+      tempMetlId: 6
+    Create Table charlies_shoe_emporium_store_locations:
+      position:
+        x: 140
+        "y": 240
+      tempMetlId: 7
+    Get Today Date - 5 days:
+      position:
+        x: 720
+        "y": 0
+      tempMetlId: 9
+    Run charlie FL incremental load xform:
+      position:
+        x: 870
+        "y": 0
+      tempMetlId: 10
+    And:
+      position:
+        x: 570
+        "y": 0
+      tempMetlId: 11

@@ -1,0 +1,60 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Superpower Set #1"
+      parameters:
+        componentName: "Start"
+    'Superpower Set #1':
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Superpower Set #2"
+      parameters:
+        componentName: "Superpower Set #1"
+        orchestrationJob: "Superpower Group 1 /incremental load"
+        setScalarVariables:
+        setGridVariables:
+    'Superpower Set #2':
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Superpower Set #3"
+      parameters:
+        componentName: "Superpower Set #2"
+        orchestrationJob: "Superpower Group 2/dbt_tests"
+        setScalarVariables:
+        setGridVariables:
+    'Superpower Set #3':
+      type: "run-orchestration"
+      parameters:
+        componentName: "Superpower Set #3"
+        orchestrationJob: "Superpower Group 3/group 3 orch"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    'Superpower Set #1':
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+    'Superpower Set #2':
+      position:
+        x: 380
+        "y": 0
+      tempMetlId: 3
+    'Superpower Set #3':
+      position:
+        x: 580
+        "y": 0
+      tempMetlId: 4
