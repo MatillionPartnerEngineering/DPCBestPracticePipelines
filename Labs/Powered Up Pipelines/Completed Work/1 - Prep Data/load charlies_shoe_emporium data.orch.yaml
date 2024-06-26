@@ -382,7 +382,8 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run charlie FL incremental load xform"
-        transformationJob: "prep data/charlie FL incremental load xform"
+        transformationJob: "Labs/Powered Up Pipelines/Completed Work/1 - Prep Data/charlie\
+          \ FL incremental load xform"
         setScalarVariables:
         setGridVariables:
     And:

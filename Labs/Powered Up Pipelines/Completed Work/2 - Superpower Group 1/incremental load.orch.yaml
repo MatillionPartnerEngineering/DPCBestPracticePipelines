@@ -308,7 +308,8 @@ pipeline:
       type: "run-transformation"
       parameters:
         componentName: "Run incremental load xform"
-        transformationJob: "Superpower Group 1 /incremental load xform"
+        transformationJob: "Labs/Powered Up Pipelines/Completed Work/2 - Superpower\
+          \ Group 1/incremental load xform"
         setScalarVariables:
         setGridVariables:
   variables:

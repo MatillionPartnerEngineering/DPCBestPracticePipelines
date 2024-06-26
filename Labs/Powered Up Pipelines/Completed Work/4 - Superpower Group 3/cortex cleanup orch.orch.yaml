@@ -34,7 +34,8 @@ pipeline:
         - "Alter Warehouse - Suspend"
       parameters:
         componentName: "Run Sentiment Analysis on Reviews"
-        transformationJob: "Superpower Group 3/group 3 transform"
+        transformationJob: "Labs/Powered Up Pipelines/Completed Work/4 - Superpower\
+          \ Group 3/cortex cleanup xform"
         setScalarVariables:
         setGridVariables:
     S3 File Management via Boto3:

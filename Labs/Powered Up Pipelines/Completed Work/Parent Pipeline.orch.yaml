@@ -6,7 +6,7 @@ pipeline:
       type: "start"
       transitions:
         unconditional:
-        - "Superpower Set #1"
+        - "Run load charlies_shoe_emporium data"
       parameters:
         componentName: "Start"
     'Superpower Set #1':
@@ -16,7 +16,8 @@ pipeline:
         - "Superpower Set #2"
       parameters:
         componentName: "Superpower Set #1"
-        orchestrationJob: "Superpower Group 1 /incremental load"
+        orchestrationJob: "Labs/Powered Up Pipelines/Completed Work/2 - Superpower\
+          \ Group 1/incremental load"
         setScalarVariables:
         setGridVariables:
     'Superpower Set #2':
@@ -26,21 +27,34 @@ pipeline:
         - "Superpower Set #3"
       parameters:
         componentName: "Superpower Set #2"
-        orchestrationJob: "Superpower Group 2/dbt_tests"
+        orchestrationJob: "Labs/Powered Up Pipelines/Completed Work/3 - Superpower\
+          \ Group 2/dbt_tests"
         setScalarVariables:
         setGridVariables:
     'Superpower Set #3':
       type: "run-orchestration"
       parameters:
         componentName: "Superpower Set #3"
-        orchestrationJob: "Superpower Group 3/group 3 orch"
+        orchestrationJob: "Labs/Powered Up Pipelines/Completed Work/4 - Superpower\
+          \ Group 3/cortex cleanup orch"
+        setScalarVariables:
+        setGridVariables:
+    Run load charlies_shoe_emporium data:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Superpower Set #1"
+      parameters:
+        componentName: "Run load charlies_shoe_emporium data"
+        orchestrationJob: "Labs/Powered Up Pipelines/Completed Work/1 - Prep Data/load\
+          \ charlies_shoe_emporium data"
         setScalarVariables:
         setGridVariables:
 design:
   components:
     Start:
       position:
-        x: 0
+        x: -170
         "y": 0
       tempMetlId: 1
     'Superpower Set #1':
@@ -58,3 +72,8 @@ design:
         x: 580
         "y": 0
       tempMetlId: 4
+    Run load charlies_shoe_emporium data:
+      position:
+        x: -20
+        "y": 0
+      tempMetlId: 5

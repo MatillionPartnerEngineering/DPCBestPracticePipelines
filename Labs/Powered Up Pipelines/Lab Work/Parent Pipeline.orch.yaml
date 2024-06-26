@@ -1,0 +1,31 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Prep Data"
+      parameters:
+        componentName: "Start"
+    Prep Data:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Prep Data"
+        orchestrationJob: "Labs/Powered Up Pipelines/Lab Work/1 - Prep Data/load charlies_shoe_emporium\
+          \ data"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: -180
+        "y": 0
+      tempMetlId: 1
+    Prep Data:
+      position:
+        x: -10
+        "y": 0
+      tempMetlId: 5
