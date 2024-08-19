@@ -1,0 +1,309 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "dbt list"
+      parameters:
+        componentName: "Start"
+    dbt list:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+        unconditional:
+        - "dbt compile"
+      parameters:
+        componentName: "dbt list"
+        command: "dbt list -s ${dbt_model}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "hitting"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    Or:
+      type: "or"
+      transitions:
+        unconditional:
+        - "Send dbt Setup Failure Email"
+      parameters:
+        componentName: "Or"
+    And:
+      type: "and"
+      transitions:
+        unconditional:
+        - "dbt test"
+        - "dbt source freshness"
+      parameters:
+        componentName: "And"
+    Send dbt Setup Failure Email:
+      type: "send-email"
+      transitions:
+        unconditional:
+        - "Or 2"
+      parameters:
+        componentName: "Send dbt Setup Failure Email"
+        toRecipients:
+        - - "partnersuccess@matillion.com"
+        - - "services@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Setup Components Failed"
+        message: "dbt setup components - dbt list and dbt compile - failed."
+        senderAddress: "yourtrustypipeline@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    Query Result To Scalar:
+      type: "query-to-scalar"
+      transitions:
+        unconditional:
+        - "Send dbt Test Failure Email"
+      parameters:
+        componentName: "Query Result To Scalar"
+        mode: "Advanced"
+        query: |-
+          SELECT * FROM
+          DEV_DB.KAREY_DBT_TEST__AUDIT.SOURCE_ACCEPTED_VALUES_CHARLIE_20CAC73773BF953CD38ADD18ACA642C0
+        scalarVariableMapping:
+        - - "pv_non_accepted_value"
+          - "VALUE_FIELD"
+        - - "pv_non_accepted_value_count"
+          - "N_RECORDS"
+    Or 2:
+      type: "or"
+      transitions:
+        unconditional:
+        - "End Failure"
+      parameters:
+        componentName: "Or 2"
+    End Failure:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    dbt compile:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "dbt compile"
+        command: "dbt compile -s ${dbt_model}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "hitting"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    dbt test:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "Send dbt Test Success Email"
+        failure:
+        - "Query Result To Scalar"
+      parameters:
+        componentName: "dbt test"
+        command: "dbt test -s ${dbt_model}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "hitting"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    dbt source freshness:
+      type: "commands-for-dbt-core"
+      parameters:
+        componentName: "dbt source freshness"
+        command: "dbt source freshness"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "hitting"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    Send dbt Test Success Email:
+      type: "send-email"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Send dbt Test Success Email"
+        toRecipients:
+        - - "partnersuccess@matillion.com"
+        - - "services@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Setup Components Failed"
+        message: "dbt setup components - dbt list and dbt compile - failed."
+        senderAddress: "yourtrustypipeline@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    Send dbt Test Failure Email:
+      type: "send-email"
+      transitions:
+        unconditional:
+        - "Or 2"
+      parameters:
+        componentName: "Send dbt Test Failure Email"
+        toRecipients:
+        - - "partnersuccess@matillion.com"
+        - - "services@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Setup Components Failed"
+        message: |-
+          Top Anomaly Detected:
+
+          ${pv_non_accepted_value} : ${pv_non_accepted_value_count}
+        senderAddress: "yourtrustypipeline@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+  variables:
+    dbt_model:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "2-hitting-ground-running"
+    pv_non_accepted_value:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT pv_non_accepted_value"
+    pv_non_accepted_value_count:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT pv_non_accepted_value_count"
+    dbt_command:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT"
+design:
+  components:
+    Start:
+      position:
+        x: -20
+        "y": 0
+      tempMetlId: 1
+    dbt list:
+      position:
+        x: 110
+        "y": 0
+      tempMetlId: 2
+    Or:
+      position:
+        x: 330
+        "y": -90
+      tempMetlId: 4
+    And:
+      position:
+        x: 340
+        "y": 90
+      tempMetlId: 5
+    Send dbt Setup Failure Email:
+      position:
+        x: 590
+        "y": -90
+      tempMetlId: 6
+    Query Result To Scalar:
+      position:
+        x: 590
+        "y": 0
+      tempMetlId: 9
+    Or 2:
+      position:
+        x: 850
+        "y": -90
+      tempMetlId: 11
+    End Failure:
+      position:
+        x: 980
+        "y": -90
+      tempMetlId: 12
+    End Success:
+      position:
+        x: 990
+        "y": 90
+      tempMetlId: 13
+    dbt compile:
+      position:
+        x: 250
+        "y": 0
+      tempMetlId: 14
+    dbt test:
+      position:
+        x: 460
+        "y": 90
+      tempMetlId: 15
+    dbt source freshness:
+      position:
+        x: 460
+        "y": 170
+      tempMetlId: 16
+    Send dbt Test Success Email:
+      position:
+        x: 590
+        "y": 90
+      tempMetlId: 17
+    Send dbt Test Failure Email:
+      position:
+        x: 750
+        "y": 0
+      tempMetlId: 18

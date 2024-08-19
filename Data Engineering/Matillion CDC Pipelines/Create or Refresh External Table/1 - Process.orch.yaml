@@ -1,0 +1,353 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Print version"
+      parameters:
+        componentName: "Start"
+    Print version:
+      type: "print-variables"
+      transitions:
+        success:
+        - "[Environment Default] passed as parameter?"
+      parameters:
+        componentName: "Print version"
+        variablesToPrint:
+        - - "pipeline_version"
+        prefixText:
+        includeVariableName: "Yes"
+    Build table names:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print table names"
+      parameters:
+        componentName: "Build table names"
+        scalarsToUpdate:
+        - - "external_table"
+          - "${external_table.toUpperCase()}"
+        - - "external_metadata_table"
+          - "${external_table.toUpperCase()}_VERSION_METADATA"
+    Create or refresh external table:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Create or refresh external metadata table"
+      parameters:
+        componentName: "Create or refresh external table"
+        orchestrationJob: "Matillion CDC Pipelines/Create or Refresh External Table/1-1\
+          \ - Create or refresh"
+        setScalarVariables:
+        - - "cloud_storage_url"
+          - "${cloud_storage_url}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "external_stage"
+          - "${external_stage}"
+        - - "external_table"
+          - "${external_table}"
+        - - "file_type"
+          - "AVRO"
+        setGridVariables:
+        - variable: "partition_columns"
+          status: "values"
+          gridValues:
+          - - "DATABASE"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -9), '=', -1)"
+          - - "SCHEMA"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -8), '=', -1)"
+          - - "TABLE"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -7), '=', -1)"
+          - - "VERSION"
+            - "NUMBER"
+            - "38"
+            - "0"
+            - "CAST(SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -6), '=', -1)\
+              \ AS NUMBER(38, 0))"
+          - - "DATE_HOUR"
+            - "TIMESTAMP_NTZ"
+            - "9"
+            - "0"
+            - "TO_TIMESTAMP_NTZ(SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',\
+              \  -5), '=', -1) || SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',\
+              \  -4), '=', -1) || SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',\
+              \  -3), '=', -1) || SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',\
+              \  -2), '=', -1), 'YYYYMMddHH')"
+          - - "FILENAME"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(\"METADATA$FILENAME\", '/',  -1)"
+          - - "FILEPATH"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "\"METADATA$FILENAME\""
+    Print table names:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Create or refresh external table"
+      parameters:
+        componentName: "Print table names"
+        variablesToPrint:
+        - - "external_table"
+        - - "external_metadata_table"
+        prefixText:
+        includeVariableName: "Yes"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    Create or refresh external metadata table:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Create or refresh external metadata table"
+        orchestrationJob: "Matillion CDC Pipelines/Create or Refresh External Table/1-1\
+          \ - Create or refresh"
+        setScalarVariables:
+        - - "cloud_storage_url"
+          - "${cloud_storage_url}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "external_stage"
+          - "${external_stage}"
+        - - "external_table"
+          - "${external_metadata_table}"
+        - - "file_type"
+          - "JSON"
+        - - "pattern"
+          - ".*/schema\\.avsc"
+        setGridVariables:
+        - variable: "partition_columns"
+          status: "values"
+          gridValues:
+          - - "DATABASE"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -5), '=', -1)"
+          - - "SCHEMA"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -4), '=', -1)"
+          - - "TABLE"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -3), '=', -1)"
+          - - "VERSION"
+            - "NUMBER"
+            - "38"
+            - "0"
+            - "CAST(SPLIT_PART(SPLIT_PART(\"METADATA$FILENAME\", '/',  -2), '=', -1)\
+              \ AS NUMBER(38, 0))"
+          - - "FILENAME"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "SPLIT_PART(\"METADATA$FILENAME\", '/',  -1)"
+          - - "FILEPATH"
+            - "VARCHAR"
+            - "16777216"
+            - "0"
+            - "\"METADATA$FILENAME\""
+    End Failure - [Environment Default] not supported as parameter:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - [Environment Default] not supported as parameter"
+    '[Environment Default] passed as parameter?':
+      type: "if"
+      transitions:
+        "true":
+        - "End Failure - [Environment Default] not supported as parameter"
+        "false":
+        - "Build table names"
+      parameters:
+        componentName: "[Environment Default] passed as parameter?"
+        mode: "Advanced"
+        condition1: "target_database.toLowerCase() == \"[environment default]\" ||\
+          \ target_schema.toLowerCase() == \"[environment default]\""
+  variables:
+    external_metadata_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    pipeline_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "3.0.0"
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    external_stage:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    cloud_storage_url:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    external_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Print version:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    Build table names:
+      position:
+        x: 780
+        "y": 0
+      tempMetlId: 3
+    Create or refresh external table:
+      position:
+        x: 1260
+        "y": 0
+      tempMetlId: 4
+    Print table names:
+      position:
+        x: 980
+        "y": 0
+      tempMetlId: 5
+    End Success:
+      position:
+        x: 1660
+        "y": 0
+      tempMetlId: 7
+    Create or refresh external metadata table:
+      position:
+        x: 1460
+        "y": 0
+      tempMetlId: 8
+    End Failure - [Environment Default] not supported as parameter:
+      position:
+        x: 680
+        "y": 140
+      tempMetlId: 10
+    '[Environment Default] passed as parameter?':
+      position:
+        x: 480
+        "y": 0
+      tempMetlId: 11
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -190
+      size:
+        height: 308
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Print version**
+
+        Print pipeline version to the task history, to help support cases
+    "2":
+      position:
+        x: 680
+        "y": -180
+      size:
+        height: 298
+        width: 420
+      theme: "light-yellow"
+      content: |-
+        **Build table names**
+
+        Ensure external table name is upper case.
+    "3":
+      position:
+        x: 1180
+        "y": -180
+      size:
+        height: 298
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Create or refresh external tables**
+
+        Create or refresh the following tables
+
+        - <external_table>
+        - <external_table>_VERSION_METADATA
+    "4":
+      position:
+        x: -920
+        "y": -180
+      size:
+        height: 298
+        width: 840
+      theme: "light-green"
+      content: |-
+        **Change log**
+
+        3.0.0 -----------------------------------------------------------------------------------------------------------
+        - General availability
+    "5":
+      position:
+        x: 400
+        "y": -180
+      size:
+        height: 298
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Check for [Environment Default] values**
+
+        [Environment Default] is not currently supported as we cannot use it to build SQL statements

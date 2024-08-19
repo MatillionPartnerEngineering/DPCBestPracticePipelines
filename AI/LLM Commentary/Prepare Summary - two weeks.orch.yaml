@@ -1,0 +1,130 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Python Pushdown - Turn Tables to JSON"
+      parameters:
+        componentName: "Start"
+    Python Pushdown - Turn Tables to JSON:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "OpenAI - Ask Questions on JSON Summary"
+      parameters:
+        componentName: "Python Pushdown - Turn Tables to JSON"
+        externalAccessIntegrations:
+        packages:
+        - "pandas"
+        scriptLocation: "Component"
+        pythonScript: |-
+          ###
+          # Variables are directly accessible:
+          #   print (myvar)
+          # Updating a variable:
+          #   context.updateVariable('myvar', 'new-value')
+          # Updating a grid variable:
+          #   context.updateGridVariable('mygridvar',[['list','of'],['lists','!']])
+          ###)
+
+
+          #queryresult = session.sql('select * from FORMAT_A_VALIDATE').collect()
+          #queryresult = session.sql('SHOW TABLES').collect()
+          #print("queryresult[0][0] is: ",queryresult)
+          #context.updateVariable('scalarVar',queryresult[0][0])
+
+          from snowflake.snowpark import Session
+          import pandas as pd
+
+
+          # Load the table into a Snowpark DataFrame
+          df1 = session.table('DATA_SCIENCE.DB_OUTPUT."JW_Film_Data_Prepped_week1"')
+          df2 = session.table('DATA_SCIENCE.DB_OUTPUT."JW_Film_Data_Prepped_week2"')
+
+          # Convert the Snowpark DataFrame to a pandas DataFrame
+          pdf1 = df1.to_pandas()
+          pdf2 = df2.to_pandas()
+
+          # Convert the pandas DataFrame to a JSON object
+          json_result1 = pdf1.to_json(orient='records')
+          json_result2 = pdf2.to_json(orient='records')
+
+          # Print the JSON result
+          print(json_result1)
+
+
+          context.updateVariable('week1',json_result1)
+          context.updateVariable('week2',json_result2)
+        scriptTimeout: "360"
+    OpenAI - Ask Questions on JSON Summary:
+      type: "openai-ai-prompt"
+      parameters:
+        componentName: "OpenAI - Ask Questions on JSON Summary"
+        openAI:
+          model: "gpt-4o"
+          apiKey: "OpenAI-Key"
+          temperature: "1"
+          topP: "1"
+          "n": "1"
+          maxTokens:
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "JW_Question_List"
+            keyColumn: "Id"
+            limit: "1000"
+        promptContext:
+          userContext: "You are looking at weekend box office returns for UK film\
+            \ showings\r\nLook at this week's data - ${week2} and last week's data\
+            \ - ${week1} and answer the questions on them\r\n\r\nBear in mind the\
+            \ Euros started last week \r\nWeather in the UK was awful \r\nSchool holidays\
+            \ started this week"
+          inputs:
+          - - "Question"
+            - "Question"
+            - "Text"
+          outputFormat: "TEXT"
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "JW_Questions_Answered"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+  variables:
+    week1:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Test"
+    week2:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Test"
+design:
+  components:
+    Start:
+      position:
+        x: -10
+        "y": 10
+      tempMetlId: 1
+    Python Pushdown - Turn Tables to JSON:
+      position:
+        x: 180
+        "y": 10
+      tempMetlId: 2
+    OpenAI - Ask Questions on JSON Summary:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 3

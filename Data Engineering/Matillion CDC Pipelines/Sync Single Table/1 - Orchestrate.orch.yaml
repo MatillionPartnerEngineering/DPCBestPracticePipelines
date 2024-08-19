@@ -1,0 +1,1292 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Print version"
+      parameters:
+        componentName: "Start"
+    Print version:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Validate input"
+      parameters:
+        componentName: "Print version"
+        variablesToPrint:
+        - - "pipeline_version"
+        prefixText:
+        includeVariableName: "Yes"
+    Validate input:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Connector in connector config?"
+        failure:
+        - "End Failure - Input failed validation"
+      parameters:
+        componentName: "Validate input"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "def validate_input(name: str, description: str, value: str,\
+          \ valid_options: list) -> None:\n    \"\"\"\n    Standardise input paramater,\
+          \ and check it is in list of valid options\n    \"\"\"\n    value = value.lower()\n\
+          \n\t# check value is valid\n    if value not in valid_options:\n       \
+          \ err_msg = f\"Invalid value for {description}.  Value supplied was {value!r},\
+          \ but the valid options are {valid_options}.\"\n        raise Exception(err_msg)\n\
+          \n    print(f'{name}: {value!r}')\n    context.updateVariable(name, value)\n\
+          \n\nvalidate_input(\n    name = 'transformation_type',\n    description\
+          \ = 'Transformation Type',\n    value = transformation_type,\n    valid_options\
+          \ = ['copy table', 'copy table with soft deletes', 'change log']\n)\n\n\
+          validate_input(\n    name = 'schema_drift_action',  \n    description =\
+          \ 'Schema Drift Action',\n    value = schema_drift_action,\n    valid_options\
+          \ = ['update target', 'fail job']\n)\n\nif not cloud_storage_url[-1:] ==\
+          \ '/':\n    cloud_storage_url = cloud_storage_url + '/'\n    \nprint(f'cloud_storage_url:\
+          \ {cloud_storage_url!r}')\ncontext.updateVariable('cloud_storage_url', cloud_storage_url)\n\
+          \nif use_source_schemas.lower() in ('yes', 'y', 'true', 't', '1'):\n   \
+          \ use_source_schemas = 'y'\nelse:\n    use_source_schemas = 'n'\n\nprint(f'use_source_schemas:\
+          \ {use_source_schemas!r}')\ncontext.updateVariable('use_source_schemas',\
+          \ use_source_schemas)\n\nprimary_key_override = [\n    [db, schema, table,\
+          \ column] for db, schema, table, column in primary_key_override \n    if\
+          \ db == source_database and schema == source_schema and table == source_table\n\
+          ]\nprint()\nprint('primary_key_override:')\nfor row in primary_key_override:\n\
+          \    print(\"\\t\".join(str(col) for col in row))\n# Due to bug DPCT-414,\
+          \ cannot save an empty list.\n# Work around is to filter the grid variable\
+          \ in \"Build join expression\" instead\n# context.updateGridVariable('primary_key_override',\
+          \ primary_key_override)\n"
+        scriptTimeout: "360"
+    End Failure - Input failed validation:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Input failed validation"
+    End Failure - Unknown connector:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Unknown connector"
+    End Failure - [Environment Default] not supported as parameter:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - [Environment Default] not supported as parameter"
+    Build target table name:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build target_table_exists_sql"
+      parameters:
+        componentName: "Build target table name"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "if not target_prefix:\n    target_prefix = ''\n\nprint(f'fully_qualify_target_table:\
+          \ {fully_qualify_target_table}')\n    \nif fully_qualify_target_table.lower()\
+          \ in ('yes', 'y', 'true', 't', '1'):\n    print('Using fully qualified prefix')\n\
+          \    fully_qualified_prefix = f'{source_database}_{source_schema}_'\nelse:\n\
+          \    print('Not using fully qualified prefix')\n    fully_qualified_prefix\
+          \ = ''\n    \ntarget_table = f'{target_prefix}{fully_qualified_prefix}{source_table}'.strip().upper()\n\
+          \nprint()\nprint(f'target_table: {target_table}')\ncontext.updateVariable('target_table',\
+          \ target_table)\n"
+        scriptTimeout: "360"
+    Build target_table_exists_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check target table exists"
+      parameters:
+        componentName: "Build target_table_exists_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "target_table_exists_sql = \\\nf\"\"\"SELECT \n  count(1) AS\
+          \ \"TABLE_EXISTS\"\nFROM \n  \"{target_database}\".\"INFORMATION_SCHEMA\"\
+          .\"TABLES\"\nWHERE \n  \"TABLE_SCHEMA\" = '{target_schema}'\n  AND \"TABLE_NAME\"\
+          \ = '{target_table}'\"\"\"\n\nprint(f'target_table_exists_sql: \\n{target_table_exists_sql}')\n\
+          context.updateVariable('target_table_exists_sql', target_table_exists_sql)\n"
+        scriptTimeout: "360"
+    Check target table exists:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Build high_water_mark_sql"
+      parameters:
+        componentName: "Check target table exists"
+        mode: "Advanced"
+        query: "${target_table_exists_sql}"
+        scalarVariableMapping:
+        - - "target_table_exists"
+          - "TABLE_EXISTS"
+    Build high_water_mark_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Lookup current high_water_mark from target"
+      parameters:
+        componentName: "Build high_water_mark_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "if target_table_exists == 0:\n    high_water_mark_sql = \\\n\
+          f'''SELECT\n    0 AS \"MAX_VERSION\",\n    '1900-01-01' AS \"MAX_DATE_HOUR\"\
+          ,\n    '0000000000.avro' AS \"MAX_FILENAME\",\n    0 AS \"TARGET_CONTAINS_DATA\"\
+          '''\n\nelse:\n    high_water_mark_sql = \\\nf'''WITH \n\"LAST_ROW\" AS (\n\
+          \    SELECT \n        \"MTLN_CDC_SRC_VERSION\",\n        \"MTLN_CDC_PROCESSED_DATE_HOUR\"\
+          ,\n        \"MTLN_CDC_FILENAME\"\n    FROM \n        \"{target_database}\"\
+          .\"{target_schema}\".\"{target_table}\"\n    ORDER BY\n        \"MTLN_CDC_SRC_VERSION\"\
+          \ DESC,\n        \"MTLN_CDC_PROCESSED_DATE_HOUR\" DESC,\n        \"MTLN_CDC_FILENAME\"\
+          \ DESC\n    LIMIT 1\n)\nSELECT \n    coalesce(any_value(\"MTLN_CDC_SRC_VERSION\"\
+          ), 0) AS \"MAX_VERSION\",\n    coalesce(any_value(\"MTLN_CDC_PROCESSED_DATE_HOUR\"\
+          ), '1900-01-01') AS \"MAX_DATE_HOUR\",\n    coalesce(any_value(\"MTLN_CDC_FILENAME\"\
+          ), '0000000000.avro') AS \"MAX_FILENAME\",\n    count(1) AS \"TARGET_CONTAINS_DATA\"\
+          \nFROM \n    \"LAST_ROW\"'''\n\nprint(f'high_water_mark_sql: \\n{high_water_mark_sql}')\n\
+          context.updateVariable('high_water_mark_sql', high_water_mark_sql)\n"
+        scriptTimeout: "360"
+    Lookup current high_water_mark from target:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Print high_water_mark"
+      parameters:
+        componentName: "Lookup current high_water_mark from target"
+        mode: "Advanced"
+        query: "${high_water_mark_sql}"
+        scalarVariableMapping:
+        - - "max_version"
+          - "MAX_VERSION"
+        - - "max_date_hour"
+          - "MAX_DATE_HOUR"
+        - - "max_filename"
+          - "MAX_FILENAME"
+        - - "target_contains_data"
+          - "TARGET_CONTAINS_DATA"
+    Print high_water_mark:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Target table contains NULL values in high-water mark?"
+      parameters:
+        componentName: "Print high_water_mark"
+        variablesToPrint:
+        - - "max_version"
+        - - "max_date_hour"
+        - - "max_filename"
+        - - "target_contains_data"
+        prefixText:
+        includeVariableName: "Yes"
+    Target table contains NULL values in high-water mark?:
+      type: "if"
+      transitions:
+        "true":
+        - "End Failure - NULL values detected in high-water mark columns"
+        "false":
+        - "Build next_files_sql"
+      parameters:
+        componentName: "Target table contains NULL values in high-water mark?"
+        mode: "Advanced"
+        condition1: "target_contains_data == 1 && (max_version == 0 || max_date_hour\
+          \ === '1900-01-01' || max_filename === '0000000000.avro')"
+    End Failure - NULL values detected in high-water mark columns:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - NULL values detected in high-water mark columns"
+    Build next_files_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check for new files in stage table"
+      parameters:
+        componentName: "Build next_files_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "next_files_sql = \\\nf'''WITH \n\"TABLE_FILES\" AS (\n    SELECT\
+          \ \n        SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -9), '=', -1) AS\
+          \ \"DATABASE\",\n        SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -8),\
+          \ '=', -1) AS \"SCHEMA\",\n        SPLIT_PART(SPLIT_PART(\"FILE_NAME\",\
+          \ '/',  -7), '=', -1) AS \"TABLE\",\n        CAST(SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -6), '=', -1) AS NUMBER(38, 0)) as \"VERSION\",\n   \
+          \     TO_TIMESTAMP(SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -5), '=',\
+          \ -1) || SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -4), '=', -1) || SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -3), '=', -1) || SPLIT_PART(SPLIT_PART(\"FILE_NAME\"\
+          , '/',  -2), '=', -1), 'YYYYMMddHH') AS \"DATE_HOUR\",\n        SPLIT_PART(\"\
+          FILE_NAME\", '/',  -1) AS \"FILENAME\",\n        \"FILE_NAME\" AS \"FILEPATH\"\
+          \n    FROM \n        table(\"{target_database}\".\"INFORMATION_SCHEMA\"\
+          .\"EXTERNAL_TABLE_FILES\"(table_name=>'\"{target_database}\".\"{stage_schema}\"\
+          .\"{stage_table}\"'))\n)\nSELECT \n    \"VERSION\",\n    \"DATE_HOUR\",\n\
+          \    \"FILENAME\",\n    \"FILEPATH\"\nFROM \n    \"TABLE_FILES\"\nWHERE\n\
+          \    \"DATABASE\" = '{source_database}'\n    AND \"SCHEMA\" = '{source_schema}'\n\
+          \    AND \"TABLE\" = '{source_table}'\n    AND (\n        (\n          \
+          \  \"VERSION\" = '{max_version}'\n            AND \"DATE_HOUR\" = '{max_date_hour}'\n\
+          \      \t    AND \"FILENAME\" > '{max_filename}'\n        )\n        OR\n\
+          \        (\n            \"VERSION\" = '{max_version}'\n            AND \"\
+          DATE_HOUR\" > '{max_date_hour}'\n        )\n        OR\n        (\n    \
+          \        \"VERSION\" > '{max_version}'\n        )\n    )\nORDER BY\n   \
+          \ \"VERSION\",\n    \"DATE_HOUR\",\n    \"FILENAME\"'''\n\nprint(f'next_files_sql:\
+          \ \\n{next_files_sql}')\ncontext.updateVariable('next_files_sql', next_files_sql)\n"
+        scriptTimeout: "360"
+    Check for new files in stage table:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Get count of new files found"
+      parameters:
+        componentName: "Check for new files in stage table"
+        mode: "Advanced"
+        query: "${next_files_sql}"
+        gridVariable: "next_files"
+        gridVariableMapping:
+        - - "VERSION"
+          - "version"
+        - - "DATE_HOUR"
+          - "date_hour"
+        - - "FILENAME"
+          - "filename"
+        - - "FILEPATH"
+          - "filepath"
+    New files found?:
+      type: "if"
+      transitions:
+        "true":
+        - "Build get_source_versions_sql"
+        "false":
+        - "End Success - No new data for source table"
+      parameters:
+        componentName: "New files found?"
+        mode: "Simple"
+        condition:
+        - - "new_files_found"
+          - "Is"
+          - "Greater than"
+          - "0"
+        combineConditions: "And"
+    End Success - No new data for source table:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - No new data for source table"
+    Process source metadata version:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Process source metadata version"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1-3\
+          \ - Process source metadata version"
+        setScalarVariables:
+        - - "append_metadata"
+          - "${append_metadata}"
+        - - "commit_id_name"
+          - "${commit_id_name}"
+        - - "commit_id_datatype"
+          - "${commit_id_datatype}"
+        - - "commit_id_precision"
+          - "${commit_id_precision}"
+        - - "commit_id_scale"
+          - "${commit_id_scale}"
+        - - "commit_id_database_type"
+          - "${commit_id_database_type}"
+        - - "connector"
+          - "${connector}"
+        - - "min_date_hour"
+          - "${min_date_hour}"
+        - - "min_filename"
+          - "${min_filename}"
+        - - "schema_drift_action"
+          - "${schema_drift_action}"
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "source_version"
+          - "${source_version}"
+        - - "stage_table"
+          - "${stage_table}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "target_table"
+          - "${target_table}"
+        - - "target_table_exists"
+          - "${target_table_exists}"
+        - - "transformation_type"
+          - "${transformation_type}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "cloud_storage_url"
+          - "${cloud_storage_url}"
+        - - "bytes_to_decimal_function"
+          - "${bytes_to_decimal_function}"
+        - - "stage_schema"
+          - "${stage_schema}"
+        setGridVariables:
+        - variable: "file_list"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "next_files"
+              columns:
+              - "version"
+              - "filepath"
+        - variable: "primary_key_override"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key_override"
+              columns:
+              - "source_database"
+              - "source_schema"
+              - "source_table"
+              - "source_column"
+    Iterate over source metadata versions:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "End Success"
+      iterationTarget: "Process source metadata version"
+      parameters:
+        componentName: "Iterate over source metadata versions"
+        gridVariable: "metadata_versions"
+        gridIteratorVariableMapping:
+        - - "source_version"
+          - "source_version"
+        - - "min_date_hour"
+          - "min_date_hour"
+        - - "min_filename"
+          - "min_filename"
+        - - "target_table_exists"
+          - "target_table_exists"
+        breakOnFailure: "Yes"
+        concurrency: "Sequential"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    Build get_source_versions_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Get source metadata versions"
+      parameters:
+        componentName: "Build get_source_versions_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "get_source_versions_sql = \\\nf'''WITH \n\"TABLE_FILES\" AS\
+          \ (\n    SELECT \n        SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -9),\
+          \ '=', -1) AS \"DATABASE\",\n        SPLIT_PART(SPLIT_PART(\"FILE_NAME\"\
+          , '/',  -8), '=', -1) AS \"SCHEMA\",\n        SPLIT_PART(SPLIT_PART(\"FILE_NAME\"\
+          , '/',  -7), '=', -1) AS \"TABLE\",\n        CAST(SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -6), '=', -1) AS NUMBER(38, 0)) as \"VERSION\",\n   \
+          \     TO_TIMESTAMP(SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -5), '=',\
+          \ -1) || SPLIT_PART(SPLIT_PART(\"FILE_NAME\", '/',  -4), '=', -1) || SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -3), '=', -1) || SPLIT_PART(SPLIT_PART(\"FILE_NAME\"\
+          , '/',  -2), '=', -1), 'YYYYMMddHH') AS \"DATE_HOUR\",\n        SPLIT_PART(\"\
+          FILE_NAME\", '/',  -1) AS \"FILENAME\"\n    FROM \n        table(\"{target_database}\"\
+          .\"INFORMATION_SCHEMA\".\"EXTERNAL_TABLE_FILES\"(table_name=>'\"{target_database}\"\
+          .\"{stage_schema}\".\"{stage_table}\"'))\n)\nSELECT \n    \"VERSION\",\n\
+          \    \"DATE_HOUR\",\n    \"FILENAME\",\n    LAG(1, 1, {target_table_exists})\
+          \ OVER(ORDER BY \"VERSION\", \"DATE_HOUR\", \"FILENAME\") AS \"TARGET_TABLE_EXISTS\"\
+          ,\n    ROW_NUMBER() OVER(PARTITION BY \"VERSION\" ORDER BY \"DATE_HOUR\"\
+          , \"FILENAME\") AS \"ROW_ID\"\nFROM \n    \"TABLE_FILES\"\nWHERE\n    \"\
+          DATABASE\" = '{source_database}'\n    AND \"SCHEMA\" = '{source_schema}'\n\
+          \    AND \"TABLE\" = '{source_table}'\n    AND (\n        (\n          \
+          \  \"VERSION\" = '{max_version}'\n            AND \"DATE_HOUR\" = '{max_date_hour}'\n\
+          \      \t    AND \"FILENAME\" > '{max_filename}'\n        )\n        OR\n\
+          \        (\n            \"VERSION\" = '{max_version}'\n            AND \"\
+          DATE_HOUR\" > '{max_date_hour}'\n        )\n        OR\n        (\n    \
+          \        \"VERSION\" > '{max_version}'\n        )\n    )\nQUALIFY\n    \"\
+          ROW_ID\" = 1\nORDER BY\n    \"VERSION\",\n    \"DATE_HOUR\",\n    \"FILENAME\"\
+          '''\n\nprint(f'get_source_versions_sql: \\n{get_source_versions_sql}')\n\
+          context.updateVariable('get_source_versions_sql', get_source_versions_sql)\n"
+        scriptTimeout: "360"
+    Get source metadata versions:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Print source metadata versions"
+      parameters:
+        componentName: "Get source metadata versions"
+        mode: "Advanced"
+        query: "${get_source_versions_sql}"
+        gridVariable: "metadata_versions"
+        gridVariableMapping:
+        - - "VERSION"
+          - "source_version"
+        - - "DATE_HOUR"
+          - "min_date_hour"
+        - - "FILENAME"
+          - "min_filename"
+        - - "TARGET_TABLE_EXISTS"
+          - "target_table_exists"
+    Print source metadata versions:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Iterate over source metadata versions"
+      parameters:
+        componentName: "Print source metadata versions"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          print('metadata_versions:')
+          for row in metadata_versions:
+              print("\t".join(str(col) for col in row))
+        scriptTimeout: "360"
+    Validate target schema:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Fully qualify user defined function name"
+      parameters:
+        componentName: "Validate target schema"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1-1\
+          \ - Validate target schema"
+        setScalarVariables:
+        - - "use_source_schemas"
+          - "${use_source_schemas}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        setGridVariables:
+    Fully qualify user defined function name:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Validate bytes to decimal function"
+      parameters:
+        componentName: "Fully qualify user defined function name"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "def unquote_identifier(identifier: str) -> str:\n    if identifier[0]\
+          \ == '\"' and identifier[-1] == '\"':\n        return identifier[1:-1]\n\
+          \    else:\n        return identifier\n\n\nprint(f'initial bytes_to_decimal_function:\
+          \ {bytes_to_decimal_function!r}')\nprint()\n\nif not bytes_to_decimal_function:\n\
+          \    print(\n        'No function specified for casting bytes to decimals.\
+          \ \\n'\n        'Any VariableScaleDecimal columns in the Avro files will\
+          \ be left '\n        'as byte arrays in variant columns in the target table.'\n\
+          \    )\n    return\n\nudf_list = bytes_to_decimal_function.split('.', 2)\n\
+          \nif len(udf_list) == 1:\n    print('No database or schema specified for\
+          \ function, so using the same as the external table.')\n    print()\n  \
+          \  function_database = target_database\n    function_schema = stage_schema\n\
+          \    function_name = unquote_identifier(udf_list[0])\nelif len(udf_list)\
+          \ == 2:\n    print('No database specified for function, so using the same\
+          \ as the external table.')\n    print()\n    function_database = target_database\n\
+          \    function_schema = unquote_identifier(udf_list[0])\n    function_name\
+          \ = unquote_identifier(udf_list[1])\nelse:\n    function_database = unquote_identifier(udf_list[0])\n\
+          \    function_schema = unquote_identifier(udf_list[1])\n    function_name\
+          \ = unquote_identifier(udf_list[2])\n    \nprint(f'function_database: {function_database!r}')\n\
+          context.updateVariable('function_database', function_database)\n\nprint(f'function_schema:\
+          \ {function_schema!r}')\ncontext.updateVariable('function_schema', function_schema)\n\
+          \nprint(f'function_name: {function_name!r}')\ncontext.updateVariable('function_name',\
+          \ function_name)\n\nbytes_to_decimal_function = f'\"{function_database}\"\
+          .\"{function_schema}\".\"{function_name}\"'\n\nprint()\nprint(f'fully qualified\
+          \ bytes_to_decimal_function: {bytes_to_decimal_function!r}')\ncontext.updateVariable('bytes_to_decimal_function',\
+          \ bytes_to_decimal_function)\n"
+        scriptTimeout: "360"
+    Validate bytes to decimal function:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Build target table name"
+      parameters:
+        componentName: "Validate bytes to decimal function"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1-2\
+          \ - Validate bytes to decimal function"
+        setScalarVariables:
+        - - "bytes_to_decimal_function"
+          - "${bytes_to_decimal_function}"
+        - - "function_database"
+          - "${function_database}"
+        - - "function_schema"
+          - "${function_schema}"
+        - - "function_name"
+          - "${function_name}"
+        setGridVariables:
+    '[Environment Default] passed as parameter?':
+      type: "if"
+      transitions:
+        "true":
+        - "End Failure - [Environment Default] not supported as parameter"
+        "false":
+        - "Set schemas for external and target tables"
+      parameters:
+        componentName: "[Environment Default] passed as parameter?"
+        mode: "Advanced"
+        condition1: "target_database.toLowerCase() == \"[environment default]\" ||\
+          \ target_schema.toLowerCase() == \"[environment default]\""
+    Lookup connector specific config:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print connector specific config"
+      parameters:
+        componentName: "Lookup connector specific config"
+        scalarsToUpdate:
+        - - "commit_id_name"
+          - "${connector_config.commit_id_name[connector_config.connector.indexOf(connector)]}"
+        - - "commit_id_datatype"
+          - "${connector_config.commit_id_datatype[connector_config.connector.indexOf(connector)]}"
+        - - "commit_id_precision"
+          - "${connector_config.commit_id_precision[connector_config.connector.indexOf(connector)]}"
+        - - "commit_id_scale"
+          - "${connector_config.commit_id_scale[connector_config.connector.indexOf(connector)]}"
+        - - "commit_id_database_type"
+          - "${connector_config.commit_id_database_type[connector_config.connector.indexOf(connector)]}"
+    Print connector specific config:
+      type: "print-variables"
+      transitions:
+        success:
+        - "[Environment Default] passed as parameter?"
+      parameters:
+        componentName: "Print connector specific config"
+        variablesToPrint:
+        - - "connector"
+        - - "commit_id_name"
+        - - "commit_id_datatype"
+        - - "commit_id_precision"
+        - - "commit_id_scale"
+        - - "commit_id_database_type"
+        prefixText:
+        includeVariableName: "Yes"
+    Connector in connector config?:
+      type: "if"
+      transitions:
+        "true":
+        - "Lookup connector specific config"
+        "false":
+        - "Print connector"
+      parameters:
+        componentName: "Connector in connector config?"
+        mode: "Advanced"
+        condition1: "connector_config.connector.indexOf(connector) >= 0"
+    Print connector:
+      type: "print-variables"
+      transitions:
+        success:
+        - "End Failure - Unknown connector"
+      parameters:
+        componentName: "Print connector"
+        variablesToPrint:
+        - - "connector"
+        - - "connector_config"
+        prefixText:
+        includeVariableName: "Yes"
+    Get count of new files found:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print count of new files found"
+      parameters:
+        componentName: "Get count of new files found"
+        scalarsToUpdate:
+        - - "new_files_found"
+          - "${next_files.filepath.length}"
+    Print count of new files found:
+      type: "print-variables"
+      transitions:
+        success:
+        - "New files found?"
+      parameters:
+        componentName: "Print count of new files found"
+        variablesToPrint:
+        - - "new_files_found"
+        prefixText:
+        includeVariableName: "Yes"
+    Set schemas for external and target tables:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print schemas for external and target tables"
+      parameters:
+        componentName: "Set schemas for external and target tables"
+        scalarsToUpdate:
+        - - "stage_schema"
+          - "${target_schema}"
+        - - "target_schema"
+          - "${use_source_schemas == \"y\" ? source_schema.toUpperCase() : target_schema}"
+    Print schemas for external and target tables:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Validate target schema"
+      parameters:
+        componentName: "Print schemas for external and target tables"
+        variablesToPrint:
+        - - "use_source_schemas"
+        - - "stage_schema"
+        - - "target_schema"
+        prefixText:
+        includeVariableName: "Yes"
+  variables:
+    stage_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    check_for_versions_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    fully_qualify_target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Y"
+    get_source_versions_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_contains_data:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_table_exists_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    max_date_hour:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "1900-01-01"
+    min_filename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_version:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "1"
+    max_filename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0000000000.avro"
+    target_table_exists:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0"
+    target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    high_water_mark_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    commit_id_database_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_prefix:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    function_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    pipeline_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "4.0.1"
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    function_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    cloud_storage_url:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    append_metadata:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Y"
+    transformation_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Copy Table"
+    warehouse:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    use_source_schemas:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "N"
+    commit_id_datatype:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    new_files_found:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0"
+    stage_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    max_version:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0"
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    connector:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    bytes_to_decimal_function:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "BYTES_TO_DECIMAL"
+    schema_drift_action:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Update Target"
+    function_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    min_date_hour:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    commit_id_scale:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    next_files_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    commit_id_precision:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    connector_config:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          connector:
+            columnType: "TEXT"
+          commit_id_name:
+            columnType: "TEXT"
+          commit_id_datatype:
+            columnType: "TEXT"
+          commit_id_precision:
+            columnType: "TEXT"
+          commit_id_scale:
+            columnType: "TEXT"
+          commit_id_database_type:
+            columnType: "TEXT"
+      defaultValue:
+      - - "postgresql"
+        - "sequence"
+        - "VARCHAR"
+        - "16777216"
+        - "0"
+        - "VARCHAR(16777216)"
+      - - "sqlserver"
+        - "change_lsn"
+        - "VARCHAR"
+        - "16777216"
+        - "0"
+        - "VARCHAR(16777216)"
+      - - "oracle"
+        - "rs_id"
+        - "VARCHAR"
+        - "16777216"
+        - "0"
+        - "VARCHAR(16777216)"
+      - - "mysql"
+        - "file_pos_row"
+        - "VARCHAR"
+        - "16777216"
+        - "0"
+        - "VARCHAR(16777216)"
+      - - "db2_ibm_i"
+        - "event_serial_number"
+        - "NUMBER"
+        - "38"
+        - "0"
+        - "NUMBER(38, 0)"
+    next_files:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          version:
+            columnType: "NUMBER"
+          date_hour:
+            columnType: "TEXT"
+          filename:
+            columnType: "TEXT"
+          filepath:
+            columnType: "TEXT"
+      defaultValue: []
+    metadata_versions:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          source_version:
+            columnType: "NUMBER"
+          min_date_hour:
+            columnType: "TEXT"
+          min_filename:
+            columnType: "TEXT"
+          target_table_exists:
+            columnType: "NUMBER"
+      defaultValue: []
+    primary_key_override:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          source_database:
+            columnType: "TEXT"
+          source_schema:
+            columnType: "TEXT"
+          source_table:
+            columnType: "TEXT"
+          source_column:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: -1400
+        "y": 0
+      tempMetlId: 1
+    Print version:
+      position:
+        x: -1210
+        "y": 0
+      tempMetlId: 2
+    Validate input:
+      position:
+        x: -940
+        "y": 0
+      tempMetlId: 3
+    End Failure - Input failed validation:
+      position:
+        x: -740
+        "y": 140
+      tempMetlId: 5
+    End Failure - Unknown connector:
+      position:
+        x: -340
+        "y": 280
+      tempMetlId: 7
+    End Failure - [Environment Default] not supported as parameter:
+      position:
+        x: 60
+        "y": 140
+      tempMetlId: 9
+    Build target table name:
+      position:
+        x: 1140
+        "y": 0
+      tempMetlId: 10
+    Build target_table_exists_sql:
+      position:
+        x: 1420
+        "y": 0
+      tempMetlId: 12
+    Check target table exists:
+      position:
+        x: 1620
+        "y": 0
+      tempMetlId: 14
+    Build high_water_mark_sql:
+      position:
+        x: 1800
+        "y": 0
+      tempMetlId: 16
+    Lookup current high_water_mark from target:
+      position:
+        x: 2000
+        "y": 0
+      tempMetlId: 18
+    Print high_water_mark:
+      position:
+        x: 2200
+        "y": 0
+      tempMetlId: 19
+    Target table contains NULL values in high-water mark?:
+      position:
+        x: 2400
+        "y": 0
+      tempMetlId: 20
+    End Failure - NULL values detected in high-water mark columns:
+      position:
+        x: 2600
+        "y": 140
+      tempMetlId: 22
+    Build next_files_sql:
+      position:
+        x: 2680
+        "y": 0
+      tempMetlId: 23
+    Check for new files in stage table:
+      position:
+        x: 2880
+        "y": 0
+      tempMetlId: 29
+    New files found?:
+      position:
+        x: 3480
+        "y": 0
+      tempMetlId: 30
+    End Success - No new data for source table:
+      position:
+        x: 3680
+        "y": 140
+      tempMetlId: 31
+    Process source metadata version:
+      position:
+        x: 4360
+        "y": -10
+      tempMetlId: 32
+    Iterate over source metadata versions:
+      position:
+        x: 4360
+        "y": -10
+      tempMetlId: 33
+    End Success:
+      position:
+        x: 4560
+        "y": 0
+      tempMetlId: 37
+    Build get_source_versions_sql:
+      position:
+        x: 3680
+        "y": 0
+      tempMetlId: 39
+    Get source metadata versions:
+      position:
+        x: 3880
+        "y": 0
+      tempMetlId: 40
+    Print source metadata versions:
+      position:
+        x: 4080
+        "y": 0
+      tempMetlId: 41
+    Validate target schema:
+      position:
+        x: 460
+        "y": 0
+      tempMetlId: 45
+    Fully qualify user defined function name:
+      position:
+        x: 660
+        "y": 0
+      tempMetlId: 46
+    Validate bytes to decimal function:
+      position:
+        x: 860
+        "y": 0
+      tempMetlId: 47
+    '[Environment Default] passed as parameter?':
+      position:
+        x: -140
+        "y": 0
+      tempMetlId: 48
+    Lookup connector specific config:
+      position:
+        x: -540
+        "y": 0
+      tempMetlId: 49
+    Print connector specific config:
+      position:
+        x: -340
+        "y": 0
+      tempMetlId: 50
+    Connector in connector config?:
+      position:
+        x: -740
+        "y": 0
+      tempMetlId: 51
+    Print connector:
+      position:
+        x: -530
+        "y": 140
+      tempMetlId: 52
+    Get count of new files found:
+      position:
+        x: 3080
+        "y": 0
+      tempMetlId: 53
+    Print count of new files found:
+      position:
+        x: 3280
+        "y": 0
+      tempMetlId: 54
+    Set schemas for external and target tables:
+      position:
+        x: 60
+        "y": 0
+      tempMetlId: 55
+    Print schemas for external and target tables:
+      position:
+        x: 260
+        "y": 0
+      tempMetlId: 56
+  notes:
+    "1":
+      position:
+        x: -2340
+        "y": -180
+      size:
+        height: 298
+        width: 860
+      theme: "light-green"
+      content: |
+        **Change log**
+
+        4.0.0 -----------------------------------------------------------------------------------------------------------
+        - General availability
+
+        4.0.1 -----------------------------------------------------------------------------------------------------------
+        - For use_source_schemas = 'Y', add IF NOT EXISTS to CREATE SCHEMA statement
+        - Added support for the logical types time-micros, matillion-time-nanos, matillion-zoned-timestamp, timestamp-micros and matillion-timestamp-nanos
+    "2":
+      position:
+        x: -1280
+        "y": -180
+      size:
+        height: 298
+        width: 180
+      theme: "light-yellow"
+      content: |-
+        **Print version**
+
+        Print pipeline version to the task history, to help support cases
+    "3":
+      position:
+        x: -1020
+        "y": -180
+      size:
+        height: 298
+        width: 2000
+      theme: "light-yellow"
+      content: |-
+        **Clean up input parameters**
+
+        * Validate input parameters
+        * Set connector specific variables
+        * Check for [Environment Default] values
+        * Set schemas for external and target tables
+        * Validate __bytes to decimal__function
+    "4":
+      position:
+        x: 1060
+        "y": -180
+      size:
+        height: 298
+        width: 200
+      theme: "light-yellow"
+      content: |
+        **Build target table name**
+
+        Build __target_table__ from __target_prefix__, __source_database__, __source_schema__ and __source_table__
+    "5":
+      position:
+        x: 1340
+        "y": -180
+      size:
+        height: 298
+        width: 1180
+      theme: "light-yellow"
+      content: |-
+        **Check if target table exists**
+
+        - Check if the target table exists.
+        - If it does, attempt to read the current maximum value for the high-water mark columns.
+    "6":
+      position:
+        x: 2600
+        "y": -180
+      size:
+        height: 298
+        width: 1600
+      theme: "light-yellow"
+      content: |-
+        **Check for new files to process in the external table**
+
+        - Use the previous high-water mark values to look for new files in the external table.
+        - If files are found, build a list of all source versions to iterate over.
+    "7":
+      position:
+        x: 4280
+        "y": -180
+      size:
+        height: 298
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Iterate over source metadata versions**
+
+        Iterate over version list, processing any files for each version in turn.
+    "8":
+      position:
+        x: -1020
+        "y": 120
+      size:
+        height: 198
+        width: 200
+      theme: "red"
+      content: |-
+        Bug [DPCT-414](https://matillion.atlassian.net/browse/DPCT-414) prevents Python Pushdown updating a grid variable to an empty list.
+
+        As a workaround the primary_key_override grid variable is filtered in the child pipeline.

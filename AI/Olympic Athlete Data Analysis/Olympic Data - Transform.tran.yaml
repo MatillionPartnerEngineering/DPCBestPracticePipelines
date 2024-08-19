@@ -204,7 +204,7 @@ pipeline:
           columnName: "completion_result"
           aliasName: "usage"
           isArray: "false"
-          include: "false"
+          include: "true"
           childElements:
           - name: "total_tokens"
             datatype: "NUMBER"
@@ -213,7 +213,7 @@ pipeline:
             columnName: "completion_result"
             aliasName: "total_tokens"
             isArray: "false"
-            include: "false"
+            include: "true"
           - name: "prompt_tokens"
             datatype: "NUMBER"
             size: "0"
@@ -221,7 +221,7 @@ pipeline:
             columnName: "completion_result"
             aliasName: "prompt_tokens"
             isArray: "false"
-            include: "false"
+            include: "true"
           - name: "completion_tokens"
             datatype: "NUMBER"
             size: "0"
@@ -229,7 +229,7 @@ pipeline:
             columnName: "completion_result"
             aliasName: "completion_tokens"
             isArray: "false"
-            include: "false"
+            include: "true"
         - name: "model"
           datatype: "VARCHAR"
           size: "0"
@@ -245,7 +245,7 @@ pipeline:
           columnName: "completion_result"
           aliasName: "choices"
           isArray: "true"
-          include: "false"
+          include: "true"
           childElements:
           - name: "choices-element"
             datatype: "VARIANT"
@@ -254,7 +254,7 @@ pipeline:
             columnName: "completion_result"
             aliasName: "choices-element"
             isArray: "false"
-            include: "false"
+            include: "true"
             childElements:
             - name: "messages"
               datatype: "VARCHAR"
@@ -334,12 +334,12 @@ design:
       tempMetlId: 10
     Extract Nested Data:
       position:
-        x: 2170
+        x: 2210
         "y": 310
       tempMetlId: 11
     Rewrite top_10_athletes_summer_2016:
       position:
-        x: 2010
+        x: 2040
         "y": 470
       tempMetlId: 12
   notes:
@@ -384,3 +384,12 @@ design:
       theme: "white"
       content: "Rank these athletes by the sum of their medal points descending, and\
         \ select only the top 10"
+    "5":
+      position:
+        x: 1570
+        "y": 700
+      size:
+        height: 420
+        width: 300
+      theme: "white"
+      content: ""

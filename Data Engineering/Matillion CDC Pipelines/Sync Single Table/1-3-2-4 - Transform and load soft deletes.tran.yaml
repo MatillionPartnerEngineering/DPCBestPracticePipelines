@@ -1,0 +1,442 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Extract nested data:
+      type: "sql"
+      sources:
+      - "Extract payload and metadata objects"
+      parameters:
+        componentName: "Extract nested data"
+        query: "SELECT \n    ${nested_select_list}\nFROM $T{Extract payload and metadata\
+          \ objects}\n"
+    Order changes for each key:
+      type: "rank"
+      sources:
+      - "Extract nested data"
+      parameters:
+        componentName: "Order changes for each key"
+        includeInputColumns: "Yes"
+        partitionData:
+          fromGrid:
+            variable: "primary_key"
+            columns:
+            - "key_column"
+        orderingWithinPartitions:
+        - - "MTLN_CDC_SEQUENCE_NUMBER"
+          - "Descending"
+        functions:
+        - - "Row Number"
+          - "MTLN_CDC_TEMP_KEY_ROW_NUM"
+    Filter for last change if it's a delete:
+      type: "filter"
+      sources:
+      - "Order changes for each key"
+      parameters:
+        componentName: "Filter for last change if it's a delete"
+        filterConditions:
+        - - "MTLN_CDC_TEMP_KEY_ROW_NUM"
+          - "Is"
+          - "Equal to"
+          - "1"
+        - - "MTLN_CDC_LAST_CHANGE_TYPE"
+          - "Is"
+          - "Equal to"
+          - "d"
+        combineCondition: "And"
+    Target table:
+      type: "table-input"
+      parameters:
+        componentName: "Target table"
+        database: "${target_database}"
+        schema: "${target_schema}"
+        targetTable: "${target_table}"
+        columnNames:
+          fromGrid:
+            variable: "target_metadata"
+            columns:
+            - "column_name"
+        timeOffset:
+    Join existing data:
+      type: "join"
+      sources:
+      - "Filter for last change if it's a delete"
+      - "Target table"
+      parameters:
+        componentName: "Join existing data"
+        mainTable: "Filter for last change if it's a delete"
+        mainTableAlias: "SOURCE"
+        joins:
+        - - "Target table"
+          - "TARGET"
+          - "Left"
+        joinExpressions:
+        - - "${join_expression}"
+          - "SOURCE_Left_TARGET"
+        columnMappings:
+          fromGrid:
+            variable: "join_output"
+            columns:
+            - "input_column"
+            - "output_column"
+    Filter for new data with newer MTLN_CDC_SEQUENCE_NUMBER:
+      type: "filter"
+      sources:
+      - "Join existing data"
+      parameters:
+        componentName: "Filter for new data with newer MTLN_CDC_SEQUENCE_NUMBER"
+        filterConditions:
+        - - "MTLN_TARGET_KEY"
+          - "Is"
+          - "Null"
+          - ""
+        - - "MTLN_TARGET_MTLN_CDC_SEQUENCE_NUMBER"
+          - "Is"
+          - "Less than"
+          - "MTLN_CDC_SEQUENCE_NUMBER"
+        combineCondition: "Or"
+    Apply soft deletes:
+      type: "table-update"
+      sources:
+      - "Filter for new data with newer MTLN_CDC_SEQUENCE_NUMBER"
+      parameters:
+        componentName: "Apply soft deletes"
+        warehouse: "${warehouse}"
+        database: "${target_database}"
+        schema: "${target_schema}"
+        targetTable: "${target_table}"
+        targetAlias: "TARGET"
+        sourceAlias: "SOURCE"
+        joinExpression:
+        - - "${join_expression}"
+          - "Case"
+        whenMatched:
+        - - "${join_expression}"
+          - "Update"
+        updateMapping:
+          fromGrid:
+            variable: "delete_mapping"
+            columns:
+            - "column_name"
+            - "column_name"
+        includeNotMatched: "No"
+    Extract payload and metadata objects:
+      type: "calculator"
+      sources:
+      - "Filter on source table"
+      parameters:
+        componentName: "Extract payload and metadata objects"
+        includeInputColumns: "No"
+        calculations:
+        - - |-
+            CASE "VALUE":"metadata"."op"
+                WHEN 'd' THEN "VALUE":"before"
+                ELSE "VALUE":"after"
+            END
+          - "MTLN_CDC_EXT_PAYLOAD"
+        - - "\"VALUE\":\"metadata\""
+          - "MTLN_CDC_EXT_METADATA"
+        - - "\"VERSION\""
+          - "MTLN_CDC_EXT_VERSION"
+        - - "\"DATE_HOUR\""
+          - "MTLN_CDC_EXT_DATE_HOUR"
+        - - "\"FILENAME\""
+          - "MTLN_CDC_EXT_FILENAME"
+        - - "\"FILEPATH\""
+          - "MTLN_CDC_EXT_FILEPATH"
+        - - "TRUE"
+          - "MTLN_CDC_DELETED"
+    Filter on source table:
+      type: "sql"
+      sources:
+      - "Stage table"
+      parameters:
+        componentName: "Filter on source table"
+        query: "SELECT \n  * \nFROM $T{Stage table}\nWHERE \n    \"DATABASE\" = '${source_database}'\n\
+          \    AND \"SCHEMA\" = '${source_schema}'\n    AND \"TABLE\" = '${source_table}'\n\
+          \    AND \"VERSION\" = ${source_version}\n    AND (\n        (\n       \
+          \     \"DATE_HOUR\" = '${min_date_hour}'\n            AND \"FILENAME\" >=\
+          \ '${min_filename}'\n        )\n        OR\n        (\n            \"DATE_HOUR\"\
+          \ > '${min_date_hour}'\n        )\n    )"
+    Stage table:
+      type: "table-input"
+      parameters:
+        componentName: "Stage table"
+        database: "${target_database}"
+        schema: "${stage_schema}"
+        targetTable: "${stage_table}"
+        columnNames:
+        - "VALUE"
+        - "DATABASE"
+        - "SCHEMA"
+        - "TABLE"
+        - "VERSION"
+        - "DATE_HOUR"
+        - "FILENAME"
+        - "FILEPATH"
+        timeOffset:
+  variables:
+    stage_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    nested_select_list:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    warehouse:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    min_filename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    stage_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_version:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    min_date_hour:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    join_expression:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          column_name:
+            columnType: "TEXT"
+      defaultValue: []
+    delete_mapping:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          column_name:
+            columnType: "TEXT"
+      defaultValue: []
+    join_output:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          input_column:
+            columnType: "TEXT"
+          output_column:
+            columnType: "TEXT"
+      defaultValue: []
+    primary_key:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          key_column:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Extract nested data:
+      position:
+        x: 720
+        "y": 40
+      tempMetlId: 4
+    Order changes for each key:
+      position:
+        x: 1000
+        "y": 40
+      tempMetlId: 6
+    Filter for last change if it's a delete:
+      position:
+        x: 1200
+        "y": 40
+      tempMetlId: 7
+    Target table:
+      position:
+        x: 1480
+        "y": 180
+      tempMetlId: 8
+    Join existing data:
+      position:
+        x: 1680
+        "y": 40
+      tempMetlId: 9
+    Filter for new data with newer MTLN_CDC_SEQUENCE_NUMBER:
+      position:
+        x: 1880
+        "y": 40
+      tempMetlId: 10
+    Apply soft deletes:
+      position:
+        x: 2160
+        "y": 40
+      tempMetlId: 11
+    Extract payload and metadata objects:
+      position:
+        x: 520
+        "y": 40
+      tempMetlId: 13
+    Filter on source table:
+      position:
+        x: 240
+        "y": 40
+      tempMetlId: 14
+    Stage table:
+      position:
+        x: 40
+        "y": 40
+      tempMetlId: 15
+  notes:
+    "1":
+      position:
+        x: -40
+        "y": -120
+      size:
+        height: 278
+        width: 400
+      theme: "light-yellow"
+      content: "Read data from stage table, filter for source table and files from\
+        \ __min_date_hour_filename__ onwards"
+    "3":
+      position:
+        x: 440
+        "y": -120
+      size:
+        height: 278
+        width: 400
+      theme: "light-yellow"
+      content: "Extract columns"
+    "4":
+      position:
+        x: -40
+        "y": -380
+      size:
+        height: 178
+        width: 560
+      theme: "light-green"
+      content: |-
+        **Transformation type = copy table with soft deletes**
+
+        Second transformation job for this transformation type
+
+        Extract latest change events for source table, only keeping deletes and only where they are the last change per primary key.  Mark the records as deleted in the target table
+    "5":
+      position:
+        x: 920
+        "y": -120
+      size:
+        height: 278
+        width: 400
+      theme: "light-yellow"
+      content: "Find last change for each primary key, only if it is a delete"
+    "6":
+      position:
+        x: 1400
+        "y": -120
+      size:
+        height: 418
+        width: 600
+      theme: "light-yellow"
+      content: "Remove any change events where, for a given key,  the MTLN_CDC_SEQUENCE_NUMBER\
+        \ is older than the current value"
+    "7":
+      position:
+        x: 2080
+        "y": -120
+      size:
+        height: 278
+        width: 200
+      theme: "light-yellow"
+      content: "Apply deletes"
+    "8":
+      position:
+        x: 160
+        "y": 160
+      size:
+        height: 178
+        width: 200
+      theme: "yellow"
+      content: "Using a SQL component as the Filter component does not support the\
+        \ nested filtering we require on the __DATE_HOUR__ and __FILENAME__ columns."

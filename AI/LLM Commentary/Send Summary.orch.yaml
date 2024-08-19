@@ -1,0 +1,80 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Query Result To Scalar"
+      parameters:
+        componentName: "Start"
+    SNS Message:
+      type: "sns-message"
+      parameters:
+        componentName: "SNS Message"
+        awsRegion: "us-east-1"
+        topicName: "BI-Insights"
+        subject: "AWS Notification Message"
+        message: "This week's summary of BFI Box Office Reports is as follows - \r\
+          \n \r\n${message_body}"
+    Query Result To Scalar:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "SNS Message"
+        - "Webhook Post"
+      parameters:
+        componentName: "Query Result To Scalar"
+        mode: "Basic"
+        scalarVariableMapping:
+        - - "message_body"
+          - "DATA"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        table: "JW_Questions_Answered"
+        tableColumns:
+        - "DATA"
+        orderBy:
+        sort: "Ascending"
+        limit: "1"
+        filterConditions:
+        combineCondition: "And"
+    Webhook Post:
+      type: "webhook-post"
+      parameters:
+        componentName: "Webhook Post"
+        incomingWebhookUrl: "https://hooks.slack.com/triggers/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"
+        payloadTemplate: "[Custom]"
+        payload: "{\r\n  \"message\": \"This week's summary of BFI Box Office Reports\
+          \ is as follows - ${message_body} \"\r\n}"
+  variables:
+    message_body:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Test mail"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    SNS Message:
+      position:
+        x: 300
+        "y": 0
+      tempMetlId: 2
+    Query Result To Scalar:
+      position:
+        x: 130
+        "y": 0
+      tempMetlId: 3
+    Webhook Post:
+      position:
+        x: 280
+        "y": 100
+      tempMetlId: 4

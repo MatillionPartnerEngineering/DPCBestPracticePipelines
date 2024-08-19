@@ -1,0 +1,129 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Python Pushdown  - Turn Table to JSON"
+      parameters:
+        componentName: "Start"
+    Python Pushdown  - Turn Table to JSON:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "OpenAI Questions on Weekly Summary"
+      parameters:
+        componentName: "Python Pushdown  - Turn Table to JSON"
+        externalAccessIntegrations:
+        packages:
+        - "pandas"
+        scriptLocation: "Component"
+        pythonScript: |-
+          ###
+          # Variables are directly accessible:
+          #   print (myvar)
+          # Updating a variable:
+          #   context.updateVariable('myvar', 'new-value')
+          # Updating a grid variable:
+          #   context.updateGridVariable('mygridvar',[['list','of'],['lists','!']])
+          ###)
+
+
+          #queryresult = session.sql('select * from FORMAT_A_VALIDATE').collect()
+          #queryresult = session.sql('SHOW TABLES').collect()
+          #print("queryresult[0][0] is: ",queryresult)
+          #context.updateVariable('scalarVar',queryresult[0][0])
+
+          from snowflake.snowpark import Session
+          import pandas as pd
+
+
+          # Load the table into a Snowpark DataFrame
+          df = session.table('DATA_SCIENCE.DB_OUTPUT."JW_Film_Data_Prepped"')
+
+          # Convert the Snowpark DataFrame to a pandas DataFrame
+          pdf = df.to_pandas()
+
+          # Convert the pandas DataFrame to a JSON object
+          json_result = pdf.to_json(orient='records')
+
+          # Print the JSON result
+          print(json_result)
+
+
+          context.updateVariable('scalarVar',json_result)
+        scriptTimeout: "360"
+    OpenAI Questions on Weekly Summary:
+      type: "openai-ai-prompt"
+      parameters:
+        componentName: "OpenAI Questions on Weekly Summary"
+        openAI:
+          model: "gpt-4o"
+          apiKey: "Openai"
+          temperature: "1"
+          topP: "1"
+          "n": "1"
+          maxTokens:
+        source:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "JW_Question_List"
+            keyColumn: "Id"
+            limit: "1000"
+        promptContext:
+          userContext: "Look at ${scalarVar} and answer the questions on it"
+          inputs:
+          - - "Question"
+            - "Question"
+            - "Text"
+          outputFormat: "TEXT"
+        destination:
+          snowflake:
+            database: "[Environment Default]"
+            schema: "[Environment Default]"
+            table: "JW_Questions_Answered_single_week"
+            createTableOptions: "Replace if Table Exists"
+        ragConfig:
+          isRagEnabled: "No"
+  variables:
+    week1:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "test"
+    week2:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "test"
+    scalarVar:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Test"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 20
+      tempMetlId: 1
+    Python Pushdown  - Turn Table to JSON:
+      position:
+        x: 140
+        "y": 20
+      tempMetlId: 3
+    OpenAI Questions on Weekly Summary:
+      position:
+        x: 320
+        "y": 20
+      tempMetlId: 4

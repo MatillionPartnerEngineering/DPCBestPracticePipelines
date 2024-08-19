@@ -32,7 +32,8 @@ pipeline:
       parameters:
         componentName: "Send dbt Setup Failure Email"
         toRecipients:
-        - - "karey.graham@matillion.com"
+        - - "partnersuccess@matillion.com"
+        - - "services@matillion.com"
         ccRecipients:
         subject: "Matillion Pipeline Failed - dbt Setup Components Failed"
         message: |-
@@ -50,10 +51,6 @@ pipeline:
     dbt debug:
       type: "commands-for-dbt-core"
       transitions:
-        success:
-        - "And"
-        failure:
-        - "Or"
         unconditional:
         - "dbt deps"
       parameters:

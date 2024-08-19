@@ -1,0 +1,346 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    JW_Films_Data:
+      type: "table-input"
+      parameters:
+        componentName: "JW_Films_Data"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Films_Data"
+        columnNames:
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+        - "H"
+        - "I"
+        - "id"
+        - "J"
+        - "K"
+        - "L"
+        - "M"
+        - "N"
+        - "O"
+        - "P"
+        - "Q"
+        - "R"
+        timeOffset:
+    Rename:
+      type: "rename"
+      sources:
+      - "JW_Films_Data"
+      parameters:
+        componentName: "Rename"
+        columnMapping:
+        - - "A"
+          - "Rank"
+        - - "B"
+          - "Film"
+        - - "C"
+          - "Country of Origin"
+        - - "D"
+          - "Weekend Gross"
+        - - "E"
+          - "Distributor"
+        - - "F"
+          - "PCT Change on Last Week"
+        - - "G"
+          - "Weeks on Release"
+        - - "H"
+          - "Number of Cinemas"
+        - - "I"
+          - "Site Average"
+        - - "id"
+          - "id"
+        - - "J"
+          - "Total Gross to Date"
+        includeInputColumns: "No"
+    Filter:
+      type: "filter"
+      sources:
+      - "Rename"
+      parameters:
+        componentName: "Filter"
+        filterConditions:
+        - - "Rank"
+          - "Not"
+          - "Equal to"
+          - "Rank"
+        combineCondition: "And"
+    Rewrite Table:
+      type: "rewrite-table"
+      sources:
+      - "Filter"
+      parameters:
+        componentName: "Rewrite Table"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Film_Data_Prepped"
+        orderBy:
+    Set Up Question "List":
+      type: "fixed-flow"
+      parameters:
+        componentName: "Set Up Question \"List\""
+        columns:
+        - - "Id"
+          - "NUMBER"
+          - ""
+          - ""
+        - - "Question"
+          - "VARCHAR"
+          - "1000"
+          - ""
+        values:
+        - - "1"
+          - "What can you see in this data?"
+    Rewrite Table 2:
+      type: "rewrite-table"
+      sources:
+      - "Set Up Question \"List\""
+      parameters:
+        componentName: "Rewrite Table 2"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Question_List"
+        orderBy:
+    JW_Films_Data Week 1:
+      type: "table-input"
+      parameters:
+        componentName: "JW_Films_Data Week 1"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Films_Data_week1"
+        columnNames:
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+        - "H"
+        - "I"
+        - "id"
+        - "J"
+        - "K"
+        - "L"
+        - "M"
+        - "N"
+        - "O"
+        - "P"
+        - "Q"
+        - "R"
+        timeOffset:
+    Rename 2:
+      type: "rename"
+      sources:
+      - "JW_Films_Data Week 1"
+      parameters:
+        componentName: "Rename 2"
+        columnMapping:
+        - - "A"
+          - "Rank"
+        - - "B"
+          - "Film"
+        - - "C"
+          - "Country of Origin"
+        - - "D"
+          - "Weekend Gross"
+        - - "E"
+          - "Distributor"
+        - - "F"
+          - "PCT Change on Last Week"
+        - - "G"
+          - "Weeks on Release"
+        - - "H"
+          - "Number of Cinemas"
+        - - "I"
+          - "Site Average"
+        - - "id"
+          - "id"
+        - - "J"
+          - "Total Gross to Date"
+        includeInputColumns: "No"
+    Filter 2:
+      type: "filter"
+      sources:
+      - "Rename 2"
+      parameters:
+        componentName: "Filter 2"
+        filterConditions:
+        - - "Rank"
+          - "Not"
+          - "Equal to"
+          - "Rank"
+        combineCondition: "And"
+    Rewrite Table - Week 1:
+      type: "rewrite-table"
+      sources:
+      - "Filter 2"
+      parameters:
+        componentName: "Rewrite Table - Week 1"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Film_Data_Prepped_week1"
+        orderBy:
+    JW_Films_Data Week 2:
+      type: "table-input"
+      parameters:
+        componentName: "JW_Films_Data Week 2"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Films_Data_week2"
+        columnNames:
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+        - "H"
+        - "I"
+        - "id"
+        - "J"
+        - "K"
+        - "L"
+        - "M"
+        - "N"
+        - "O"
+        - "P"
+        - "Q"
+        - "R"
+        timeOffset:
+    Rename 2 2:
+      type: "rename"
+      sources:
+      - "JW_Films_Data Week 2"
+      parameters:
+        componentName: "Rename 2 2"
+        columnMapping:
+        - - "A"
+          - "Rank"
+        - - "B"
+          - "Film"
+        - - "C"
+          - "Country of Origin"
+        - - "D"
+          - "Weekend Gross"
+        - - "E"
+          - "Distributor"
+        - - "F"
+          - "PCT Change on Last Week"
+        - - "G"
+          - "Weeks on Release"
+        - - "H"
+          - "Number of Cinemas"
+        - - "I"
+          - "Site Average"
+        - - "id"
+          - "id"
+        - - "J"
+          - "Total Gross to Date"
+        includeInputColumns: "No"
+    Filter 2 2:
+      type: "filter"
+      sources:
+      - "Rename 2 2"
+      parameters:
+        componentName: "Filter 2 2"
+        filterConditions:
+        - - "Rank"
+          - "Not"
+          - "Equal to"
+          - "Rank"
+        combineCondition: "And"
+    Rewrite Table - Week 2:
+      type: "rewrite-table"
+      sources:
+      - "Filter 2 2"
+      parameters:
+        componentName: "Rewrite Table - Week 2"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Film_Data_Prepped_week2"
+        orderBy:
+design:
+  components:
+    JW_Films_Data:
+      position:
+        x: -170
+        "y": 20
+      tempMetlId: 1
+    Rename:
+      position:
+        x: 10
+        "y": 20
+      tempMetlId: 2
+    Filter:
+      position:
+        x: 130
+        "y": 20
+      tempMetlId: 3
+    Rewrite Table:
+      position:
+        x: 250
+        "y": 20
+      tempMetlId: 4
+    Set Up Question "List":
+      position:
+        x: -10
+        "y": -90
+      tempMetlId: 5
+    Rewrite Table 2:
+      position:
+        x: 130
+        "y": -90
+      tempMetlId: 6
+    JW_Films_Data Week 1:
+      position:
+        x: -170
+        "y": 130
+      tempMetlId: 7
+    Rename 2:
+      position:
+        x: 10
+        "y": 130
+      tempMetlId: 8
+    Filter 2:
+      position:
+        x: 130
+        "y": 130
+      tempMetlId: 9
+    Rewrite Table - Week 1:
+      position:
+        x: 270
+        "y": 130
+      tempMetlId: 10
+    JW_Films_Data Week 2:
+      position:
+        x: -160
+        "y": 270
+      tempMetlId: 11
+    Rename 2 2:
+      position:
+        x: 20
+        "y": 270
+      tempMetlId: 12
+    Filter 2 2:
+      position:
+        x: 140
+        "y": 270
+      tempMetlId: 13
+    Rewrite Table - Week 2:
+      position:
+        x: 260
+        "y": 270
+      tempMetlId: 14

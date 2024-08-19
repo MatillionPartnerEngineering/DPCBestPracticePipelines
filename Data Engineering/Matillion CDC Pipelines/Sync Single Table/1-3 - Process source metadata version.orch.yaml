@@ -1,0 +1,1365 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Build get_schema_sql"
+      parameters:
+        componentName: "Start"
+    Build get_schema_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Read Avro schema from external table"
+      parameters:
+        componentName: "Build get_schema_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "get_schema_sql = \\\nf'''SELECT \n    coalesce(any_value(\"\
+          AVRO_SCHEMA\"), '') AS \"AVRO_SCHEMA\"\nFROM (\n    SELECT \n        \"\
+          VALUE\" AS \"AVRO_SCHEMA\"\n    FROM\n        \"{target_database}\".\"{stage_schema}\"\
+          .\"{stage_table}_VERSION_METADATA\"\n    WHERE \n        \"DATABASE\" =\
+          \ '{source_database}' \n        AND \"SCHEMA\" = '{source_schema}' \n  \
+          \      AND \"TABLE\" = '{source_table}'\n        AND \"VERSION\" = {source_version}\n\
+          )'''\n\nprint(f'get_schema_sql: \\n{get_schema_sql}')\ncontext.updateVariable('get_schema_sql',\
+          \ get_schema_sql)\n"
+        scriptTimeout: "360"
+    Read Avro schema from external table:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Extract nested_metadata from Avro schema"
+      parameters:
+        componentName: "Read Avro schema from external table"
+        mode: "Advanced"
+        query: "${get_schema_sql}"
+        scalarVariableMapping:
+        - - "avro_schema"
+          - "AVRO_SCHEMA"
+    Extract nested_metadata from Avro schema:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check event metadata"
+        failure:
+        - "End Failure - Unable to parse metadata"
+      parameters:
+        componentName: "Extract nested_metadata from Avro schema"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          """Convert Avro schema to nested_metadata grid variable."""
+          import json
+          from decimal import Decimal
+          from typing import Any
+          from typing import Dict
+          from typing import List
+          from typing import Union
+
+
+          PRIMITIVE_TYPES = ('boolean', 'int', 'long', 'float', 'double', 'bytes', 'string')
+
+
+          class DataType:
+              """Class to hold a primitive data type and return the details in various string formats."""
+
+              def __init__(self, name: str) -> None:
+                  """Initialise the class."""
+                  # map from Avro data type to Matillion UI data type, size and precision fields
+                  self.metl_type_map = {
+                      'boolean': 'BOOLEAN',
+                      'int': 'NUMBER',
+                      'long': 'NUMBER',
+                      'float': 'FLOAT',
+                      'double': 'FLOAT',
+                      'bytes': 'VARIANT',
+                      'string': 'VARCHAR',
+                  }
+                  self.metl_size_map = {
+                      'int': Decimal(38),
+                      'long': Decimal(38),
+                      'string': Decimal(16777216),
+                  }
+                  self.metl_precision_map: Dict[str, Decimal] = {}
+
+                  # map from Avro data type to Snowflake data type
+                  self.database_type_map = {
+                      'boolean': 'BOOLEAN',
+                      'int': 'NUMBER(38,0)',
+                      'long': 'NUMBER(38,0)',
+                      'float': 'FLOAT',
+                      'double': 'FLOAT',
+                      'bytes': 'VARIANT',
+                      'string': 'VARCHAR(16777216)',
+                  }
+
+                  self.name = name
+
+              def __repr__(self) -> str:
+                  """String representation of the class."""
+                  return f'DataType(name={self.name})'
+
+              def metadata_grid(self) -> List[Union[Decimal, str]]:
+                  """Return the data type as a list, used to populate nested_metadata grid variable.
+
+                  Returns:
+                      List with format [format_string, metl_type, metl_precision, metl_scale, snowflake_type]
+                  """
+                  return [
+                      '',
+                      self.metl_type_map.get(self.name, self.name.upper()),
+                      self.metl_size_map.get(self.name, Decimal(0)),
+                      self.metl_precision_map.get(self.name, Decimal(0)),
+                      self.database_type_map.get(self.name, self.name.upper()),
+                  ]
+
+
+          class Field:
+              """Class to hold field name and data type."""
+
+              def __init__(self, name: str, data_type: DataType) -> None:
+                  """Initialise the class."""
+                  self.name = name
+                  self.data_type = data_type
+
+              def __repr__(self) -> str:
+                  """String representation of the class."""
+                  return f'Field(name={self.name}, data_type={self.data_type})'
+
+
+          class LogicalDataType(DataType):
+              """Class to hold logical data type and return the details in various string formats."""
+
+              def __init__(
+                  self, name: str, logical_type: str, properties: Dict[str, Any]
+              ) -> None:
+                  """Initialise the class."""
+                  super().__init__(name=name)
+                  self.logical_type = logical_type
+                  self.properties = properties
+                  self.bytes_to_decimal_function = get_bytes_to_decimal_function()
+
+              def __repr__(self) -> str:
+                  """String representation of the class."""
+                  return (
+                      f'LogicalDataType(name={self.name}, logical_type={self.logical_type}, '
+                      f'properties={self.properties})'
+                  )
+
+              def metadata_grid(self) -> List[Union[Decimal, str]]:
+                  """Return the data type as a list, used to populate nested_metadata grid variable.
+
+                  Returns:
+                      List with format [format_string, metl_type, metl_precision, metl_scale, snowflake_type]
+                  """
+                  if self.name == 'bytes' and self.logical_type == 'decimal':
+
+                      precision = self.properties.get('precision', 10)
+                      scale = self.properties.get('scale', 5)
+
+                      if precision <= 38:
+                          return [
+                              '',
+                              'NUMBER',
+                              Decimal(precision),
+                              Decimal(scale),
+                              f'NUMBER({precision},{scale})',
+                          ]
+                      elif self.bytes_to_decimal_function:
+                          return [
+                              f'{self.bytes_to_decimal_function}({{col}}::VARCHAR, {scale}, {precision})::VARIANT',
+                              'VARIANT',
+                              Decimal(0),
+                              Decimal(0),
+                              'VARIANT',
+                          ]
+                      else:
+                          return [
+                              '',
+                              'VARIANT',
+                              Decimal(0),
+                              Decimal(0),
+                              'VARIANT',
+                          ]
+
+                  elif self.name == 'long' and self.logical_type == 'timestamp-millis':
+                      return [
+                          'TO_TIMESTAMP_NTZ({col}::NUMBER(38,0), 3)',
+                          'TIMESTAMP_NTZ',
+                          Decimal(9),
+                          Decimal(0),
+                          'TIMESTAMP_NTZ',
+                      ]
+
+                  elif self.name == 'long' and self.logical_type == 'timestamp-micros':
+                      return [
+                          'TO_TIMESTAMP_NTZ({col}::NUMBER(38,0), 6)',
+                          'TIMESTAMP_NTZ',
+                          Decimal(9),
+                          Decimal(0),
+                          'TIMESTAMP_NTZ',
+                      ]
+
+                  elif self.name == 'long' and self.logical_type == 'matillion-timestamp-nanos':
+                      return [
+                          'TO_TIMESTAMP_NTZ({col}::NUMBER(38,0), 9)',
+                          'TIMESTAMP_NTZ',
+                          Decimal(9),
+                          Decimal(0),
+                          'TIMESTAMP_NTZ',
+                      ]
+
+                  elif self.name == 'string' and self.logical_type == 'matillion-zoned-timestamp':
+                      return [
+                          'TO_TIMESTAMP_TZ({col}::VARCHAR)',
+                          'TIMESTAMP_TZ',
+                          Decimal(9),
+                          Decimal(0),
+                          'TIMESTAMP_TZ',
+                      ]
+
+                  elif self.name == 'int' and self.logical_type == 'time-millis':
+                      return [
+                          "TIMEADD(millisecond, {col}::NUMBER(38,0), TIME('00:00:00'))",
+                          'TIME',
+                          Decimal(3),
+                          Decimal(0),
+                          'TIME(3)',
+                      ]
+
+                  elif self.name == 'long' and self.logical_type == 'time-micros':
+                      return [
+                          "TIMEADD(microsecond, {col}::NUMBER(38,0), TIME('00:00:00'))",
+                          'TIME',
+                          Decimal(9),
+                          Decimal(0),
+                          'TIME',
+                      ]
+
+                  elif self.name == 'long' and self.logical_type == 'matillion-time-nanos':
+                      return [
+                          "TIMEADD(nanosecond, {col}::NUMBER(38,0), TIME('00:00:00'))",
+                          'TIME',
+                          Decimal(9),
+                          Decimal(0),
+                          'TIME',
+                      ]
+
+                  elif self.name == 'int' and self.logical_type == 'date':
+                      return [
+                          "DATEADD(day, {col}::NUMBER(38,0), DATE('1970-01-01'))",
+                          'DATE',
+                          Decimal(0),
+                          Decimal(0),
+                          'DATE',
+                      ]
+
+                  else:
+                      return super().metadata_grid()
+
+
+          class UnknownDataType(DataType):
+              """Class to hold unknown data type and return the details in various string formats."""
+
+              def __init__(self, name: str) -> None:
+                  """Initialise the class."""
+                  super().__init__(name=name)
+
+              def __repr__(self) -> str:
+                  """String representation of the class."""
+                  return f'UnknownDataType(name={self.name})'
+
+              def metadata_grid(self) -> List[Union[Decimal, str]]:
+                  """Return the data type as a list, used to populate nested_metadata grid variable.
+
+                  Returns:
+                      List with format [format_string, metl_type, metl_precision, metl_scale, snowflake_type]
+                  """
+                  return [
+                      '',
+                      'VARIANT',
+                      Decimal(0),
+                      Decimal(0),
+                      'VARIANT',
+                  ]
+
+
+          class ArrayDataType(DataType):
+              """Class to hold array data type and return the details in various string formats."""
+
+              def __init__(self, element_type: DataType) -> None:
+                  """Initialise the class."""
+                  super().__init__(name='array')
+                  self.element_type = element_type
+
+              def __repr__(self) -> str:
+                  """String representation of the class."""
+                  return f'ArrayDataType(name={self.name}, element_type={self.element_type})'
+
+              def metadata_grid(self) -> List[Union[Decimal, str]]:
+                  """Return the data type as a list, used to populate nested_metadata grid variable.
+
+                  Returns:
+                      List with format [format_string, metl_type, metl_precision, metl_scale, snowflake_type]
+                  """
+                  return [
+                      '',
+                      'VARIANT',
+                      Decimal(0),
+                      Decimal(0),
+                      'VARIANT',
+                  ]
+
+
+          class RecordDataType(DataType):
+              """Class to hold record data type and return the details in various string formats."""
+
+              def __init__(
+                  self, field_list: List[Field], type_name: str = '', type_namespace: str = ''
+              ) -> None:
+                  """Initialise the class."""
+                  super().__init__(name='record')
+                  self.field_list = field_list
+                  if type_namespace:
+                      self.type_name = f'{type_namespace}.{type_name}'
+                  else:
+                      self.type_name = type_name
+                  self.bytes_to_decimal_function = get_bytes_to_decimal_function()
+
+              def __repr__(self) -> str:
+                  """String representation of the class."""
+                  return f'RecordDataType(name={self.name}, type_name={self.type_name}, field_list={self.field_list})'
+
+              def metadata_grid(self) -> List[Union[Decimal, str]]:
+                  """Return the data type as a list, used to populate nested_metadata grid variable.
+
+                  Returns:
+                      List with format [format_string, metl_type, metl_precision, metl_scale, snowflake_type]
+                  """
+                  if (
+                      self.type_name == 'io.debezium.data.VariableScaleDecimal'
+                      and self.bytes_to_decimal_function
+                  ):
+
+                      return [
+                          f'{self.bytes_to_decimal_function}({{col}}:"value"::VARCHAR, {{col}}:"scale"::NUMBER, NULL)::VARIANT',
+                          'VARIANT',
+                          Decimal(0),
+                          Decimal(0),
+                          'VARIANT',
+                      ]
+
+                  else:
+                      return [
+                          '',
+                          'VARIANT',
+                          Decimal(0),
+                          Decimal(0),
+                          'VARIANT',
+                      ]
+
+
+          # Avro schema does not repeat schema for named record types
+          # Store each named record type in this dictionary, so we can look up the type if used again
+          named_record_types: Dict[str, RecordDataType] = dict()
+
+
+          def build_schema_objects(schema: Dict[str, Any]) -> RecordDataType:
+              """Convert Avro schema into objects."""
+              if schema.get('type', '') != 'record':
+                  raise ValueError('Avro schema not in expected format')
+
+              schema_objects = get_data_type(schema)
+
+              if not isinstance(schema_objects, RecordDataType):
+                  raise ValueError('Avro schema not in expected format')
+
+              return schema_objects
+
+
+          def get_data_type(type_object: Any) -> DataType:
+              """Convert Avro dictionary object into DataType object."""
+              # discard any nullable wrapper on type_object
+              type_object = extract_from_nullable_union(type_object)
+
+              # check if it's a primitive data type
+              if isinstance(type_object, str) and type_object in PRIMITIVE_TYPES:
+                  return DataType(name=type_object)
+
+              # check if this is a previously defined record type
+              elif isinstance(type_object, str) and type_object in named_record_types:
+                  return named_record_types[type_object]
+
+              # logical types have format {"type": "<primitive_type>", "logicalType": "..."}
+              elif (
+                  isinstance(type_object, dict)
+                  and type_object.get('type', '') in PRIMITIVE_TYPES
+                  and type_object.get('logicalType', '')
+              ):
+
+                  primitive_type = type_object.pop('type')
+                  logical_type = type_object.pop('logicalType')
+
+                  return LogicalDataType(
+                      name=primitive_type, logical_type=logical_type, properties=type_object
+                  )
+
+              # array types have format {"type": "array", "items": "element_type"}
+              elif isinstance(type_object, dict) and type_object.get('type', '') == 'array':
+                  return ArrayDataType(element_type=get_data_type(type_object.get('items', '')))
+
+              # record types have format {"type": "record", ... "fields": []}
+              elif isinstance(type_object, dict) and type_object.get('type', '') == 'record':
+                  record = RecordDataType(
+                      field_list=get_fields(type_object),
+                      type_name=type_object.get('name', ''),
+                      type_namespace=type_object.get('namespace', ''),
+                  )
+
+                  # add record to dictionary of record types
+                  named_record_types[record.type_name] = record
+                  return record
+
+              # unexpected type
+              else:
+                  return UnknownDataType(name=str(type_object))
+
+
+          def extract_from_nullable_union(type_object: Any) -> Any:
+              """Nullable types have format ['null', 'type'], extract the actual type."""
+              if isinstance(type_object, list):
+                  if len(type_object) == 2 and 'null' in type_object:
+                      type_object.remove('null')
+                      type_object = type_object[0]
+
+              return type_object
+
+
+          def get_fields(record_object: Dict[str, Any]) -> List[Field]:
+              """Extract list of Field objects from a record."""
+              field_list = []
+
+              for field in record_object.get('fields', []):
+                  field_list.append(
+                      Field(
+                          name=field.get('name', ''),
+                          data_type=get_data_type(field.get('type', '')),
+                      )
+                  )
+
+              return field_list
+
+
+          def get_bytes_to_decimal_function() -> str:
+              """Should we apply a function to cast bytes to decimal?"""
+              return bytes_to_decimal_function
+
+
+          def main() -> None:
+              """Convert Avro schema to nested_metadata grid variable."""
+              # convert Avro schema as json string to dictionary
+              schema_dict = json.loads(avro_schema)
+
+              # convert dictionary to list of Field objects
+              schema_obj = build_schema_objects(schema_dict)
+
+              # format the child fields in the `before` Field object
+              nested_metadata = []
+              for parent_field in schema_obj.field_list:
+                  if parent_field.name == 'before' and isinstance(
+                      parent_field.data_type, RecordDataType
+                  ):
+
+                      nested_metadata = [
+                          [
+                              field.name,
+                              field.name.upper(),
+                              *field.data_type.metadata_grid(),  # unpack list of [format_string, type, precision,
+                              # scale, database_type]
+                              '',  # default_value
+                              'No',  # not_null
+                              'No',  # unique
+                          ]
+                          for field in parent_field.data_type.field_list
+                      ]
+
+                  elif parent_field.name == 'metadata' and isinstance(
+                      parent_field.data_type, RecordDataType
+                  ):
+                      event_metadata = [
+                          [
+                              field.name,
+                              *field.data_type.metadata_grid(),  # unpack list of [format_string, type, precision,
+                              # scale, database_type]
+                          ]
+                          for field in parent_field.data_type.field_list
+                      ]
+
+              print('nested_metadata:')
+              for row in nested_metadata:
+                  print("\t".join(str(col) for col in row))
+              context.updateGridVariable('nested_metadata', nested_metadata)
+
+              print()
+              print('event_metadata:')
+              for row in event_metadata:
+                  print("\t".join(str(col) for col in row))
+              context.updateGridVariable('event_metadata', event_metadata)
+
+
+          main()
+        scriptTimeout: "360"
+    End Failure - Unable to parse metadata:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Unable to parse metadata"
+    Check event metadata:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build get_primary_key_sql"
+        failure:
+        - "End Failure - Files produced by older agent version"
+      parameters:
+        componentName: "Check event metadata"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          def required_cols_found(event_metadata, required_cols) -> bool:
+              for column, *_ in event_metadata:
+                  if column in required_cols:
+                      required_cols.remove(column)
+
+              if required_cols:
+                  return False
+              else:
+                  print('All required columns found.')
+                  return True
+
+
+          if connector == 'oracle':
+              required_cols=['rs_id', 'ssn']
+
+              if required_cols_found(event_metadata, required_cols):
+                  return
+
+              err_msg = (
+                  'For Oracle pipelines, this revision of the shared pipeline requires the following fields\n'
+                  f'which could not be found in the change event metadata: {required_cols!r}.\n'
+                  'You must snapshot the source tables with a minimum agent version of 2.83.4.'
+              )
+              raise Exception(err_msg)
+
+          elif connector == 'postgresql':
+              required_cols = ['sequence']
+
+              if required_cols_found(event_metadata, required_cols):
+                  return
+
+              err_msg = (
+                  'For PostgreSQL pipelines, this revision of the shared pipeline requires the following fields\n'
+                  f'which could not be found in the change event metadata: {required_cols!r}.\n'
+                  'You must snapshot the source tables with a minimum agent version of 2.83.4.'
+              )
+              raise Exception(err_msg)
+        scriptTimeout: "360"
+    End Failure - Files produced by older agent version:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Files produced by older agent version"
+    Build get_primary_key_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Read primary key from latest metadata in stage table"
+      parameters:
+        componentName: "Build get_primary_key_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "get_primary_key_sql = \\\nf'''WITH \n\"METADATA_KEYS\" AS (\n\
+          \    SELECT \n        \"VALUE\":\"metadata\".\"key\" AS \"KEYS\"\n    FROM\n\
+          \        \"{target_database}\".\"{stage_schema}\".\"{stage_table}\"\n  \
+          \  WHERE \n        \"DATABASE\" = '{source_database}' \n        AND \"SCHEMA\"\
+          \ = '{source_schema}' \n        AND \"TABLE\" = '{source_table}'\n     \
+          \   AND \"VERSION\" = {source_version}\n        AND \"DATE_HOUR\" = '{min_date_hour}'\n\
+          \        AND \"FILENAME\" = '{min_filename}'\n    LIMIT 1\n)\nSELECT\n \
+          \   UPPER(\"KEY_LIST\".\"VALUE\"::VARCHAR) as \"KEY_COLUMN\"\nFROM \"METADATA_KEYS\"\
+          ,\nLATERAL FLATTEN (input => \"METADATA_KEYS\".\"KEYS\", recursive => FALSE)\
+          \ \"KEY_LIST\"'''\n\nprint(f'get_primary_key_sql: \\n{get_primary_key_sql}')\n\
+          context.updateVariable('get_primary_key_sql', get_primary_key_sql)\n"
+        scriptTimeout: "360"
+    Build join expression:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build target table metadata from nested_metadata"
+      parameters:
+        componentName: "Build join expression"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "if transformation_type == 'change log':\n    return\n\nprint('detected\
+          \ primary_key:')\nfor row in primary_key:\n    print(\"\\t\".join(str(col)\
+          \ for col in row))\nprint()\n\n# Due to bug DPCT-414, need to apply filter\
+          \ to primary_key_override here\n# in case there are no rows after filer\n\
+          primary_key_override = [\n    [db, schema, table, column] for db, schema,\
+          \ table, column in primary_key_override \n    if db == source_database and\
+          \ schema == source_schema and table == source_table\n]\n\nprint('primary_key_override:')\n\
+          for row in primary_key_override:\n    print(\"\\t\".join(str(col) for col\
+          \ in row))\nprint()\n\nif not (primary_key or primary_key_override):\n \
+          \   print(f'Primary key required for {transformation_type!r} transformation\
+          \ type, but no primary '\n           'key detected in change data.\\n'\n\
+          \           \"The transformation type for this table will be updated to\
+          \ 'change log'.\")\n    print()\n    \n    transformation_type = 'change\
+          \ log'\n    print(f'transformation_type: {transformation_type}')\n    context.updateVariable('transformation_type',\
+          \ transformation_type)\n    return\n\nif primary_key_override:\n    primary_key\
+          \ = [[column.upper()] for *_, column in primary_key_override]\n\n    print('overridden\
+          \ primary_key:')\n    for row in primary_key:\n        print(\"\\t\".join(str(col)\
+          \ for col in row))\n    context.updateGridVariable('primary_key', primary_key)\n\
+          \    print()\n\n# build join expression\npredicates = [f'\"SOURCE\".\"{col[0]}\"\
+          \ = \"TARGET\".\"{col[0]}\"' for col in primary_key]\n\njoin_expression\
+          \ = \" AND \".join(predicates)\n\nprint(f'join_expression: {join_expression}')\n\
+          context.updateVariable('join_expression', join_expression)\n"
+        scriptTimeout: "360"
+    Read primary key from latest metadata in stage table:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Build join expression"
+      parameters:
+        componentName: "Read primary key from latest metadata in stage table"
+        mode: "Advanced"
+        query: "${get_primary_key_sql}"
+        gridVariable: "primary_key"
+        gridVariableMapping:
+        - - "KEY_COLUMN"
+          - "key_column"
+    Build target table metadata from nested_metadata:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Prepare target table"
+      parameters:
+        componentName: "Build target table metadata from nested_metadata"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          target_metadata = [
+              [alias, data_type, size, precision, database_type, default_value, not_null, unique]
+              for _, alias, _, data_type, size, precision, database_type, default_value, not_null, unique in nested_metadata
+          ]
+
+          if append_metadata.lower() in ('yes', 'y', 'true', 't', '1'):
+              target_metadata.extend(
+                  [
+                      ['MTLN_CDC_SRC_DATABASE', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_SRC_SCHEMA', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_SRC_TABLE', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_SRC_VERSION', 'NUMBER', 38, 0, 'NUMBER(38, 0)', '', 'No', 'No'],
+                      ['MTLN_CDC_LAST_CHANGE_TYPE', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_LAST_COMMIT_TIMESTAMP', 'TIMESTAMP_NTZ', 9, 0, 'TIMESTAMP_NTZ', '', 'No', 'No'],
+                      ['MTLN_CDC_PROCESSED_DATE_HOUR', 'TIMESTAMP_NTZ', 9, 0, 'TIMESTAMP_NTZ', '', 'No', 'No'],
+                      ['MTLN_CDC_FILENAME', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_FILEPATH', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_SEQUENCE_NUMBER', commit_id_datatype, commit_id_precision, commit_id_scale, commit_id_database_type, '', 'No', 'No'],
+                      ['MTLN_CDC_LOAD_BATCH_ID', 'NUMBER', 38, 0, 'NUMBER(38, 0)', '', 'No', 'No'],
+                      ['MTLN_CDC_LOAD_TIMESTAMP', 'TIMESTAMP_TZ', 9, 0, 'TIMESTAMP_TZ', '', 'No', 'No'],
+                  ]
+              )
+
+          elif transformation_type == 'change log':
+              target_metadata.extend(
+                  [
+                      ['MTLN_CDC_SRC_VERSION', 'NUMBER', 38, 0, 'NUMBER(38, 0)', '', 'No', 'No'],
+                      ['MTLN_CDC_LAST_CHANGE_TYPE', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_PROCESSED_DATE_HOUR', 'TIMESTAMP_NTZ', 9, 0, 'TIMESTAMP_NTZ', '', 'No', 'No'],
+                      ['MTLN_CDC_FILENAME', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_SEQUENCE_NUMBER', commit_id_datatype, commit_id_precision, commit_id_scale, commit_id_database_type, '', 'No', 'No'],
+                  ]
+              )
+
+          else:
+              target_metadata.extend(
+                  [
+                      ['MTLN_CDC_SRC_VERSION', 'NUMBER', 38, 0, 'NUMBER(38, 0)', '', 'No', 'No'],
+                      ['MTLN_CDC_PROCESSED_DATE_HOUR', 'TIMESTAMP_NTZ', 9, 0, 'TIMESTAMP_NTZ', '', 'No', 'No'],
+                      ['MTLN_CDC_FILENAME', 'VARCHAR', 16777216, 0, 'VARCHAR(16777216)', '', 'No', 'No'],
+                      ['MTLN_CDC_SEQUENCE_NUMBER', commit_id_datatype, commit_id_precision, commit_id_scale, commit_id_database_type, '', 'No', 'No'],
+                  ]
+              )
+
+          if transformation_type == 'copy table with soft deletes':
+              target_metadata.extend(
+                  [
+                      ['MTLN_CDC_DELETED', 'BOOLEAN', 0, 0, 'BOOLEAN', '', 'No', 'No'],
+                  ]
+              )
+
+          print('nested_metadata:')
+          for row in nested_metadata:
+              print("\t".join(str(col) for col in row))
+          print()
+
+          print('target_metadata:')
+          for row in target_metadata:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('target_metadata', target_metadata)
+        scriptTimeout: "360"
+    Prepare target table:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Filter file_list for current version"
+      parameters:
+        componentName: "Prepare target table"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1-3-1\
+          \ - Prepare target table"
+        setScalarVariables:
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "target_table"
+          - "${target_table}"
+        - - "target_table_exists"
+          - "${target_table_exists}"
+        - - "connector"
+          - "${connector}"
+        - - "schema_drift_action"
+          - "${schema_drift_action}"
+        setGridVariables:
+        - variable: "latest_target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "target_metadata"
+              columns:
+              - "column_name"
+              - "type"
+              - "size"
+              - "precision"
+              - "database_type"
+              - "default_value"
+              - "not_null"
+              - "unique"
+        - variable: "primary_key"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key"
+              columns:
+              - "key_column"
+    Filter file_list for current version:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Transform and Load"
+      parameters:
+        componentName: "Filter file_list for current version"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          file_list = [[version, filepath] for version, filepath in file_list if int(version) == source_version]
+
+          if len(file_list) > 1000:
+              print(f'file_list (first 1000 of {len(file_list)}):')
+              for row in file_list[:1000]:
+                  print("\t".join(str(col) for col in row))
+          else:
+              print('file_list:')
+              for row in file_list:
+                  print("\t".join(str(col) for col in row))
+          context.updateGridVariable('file_list', file_list)
+        scriptTimeout: "360"
+    Transform and Load:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "\t End Success - All new data processed"
+      parameters:
+        componentName: "Transform and Load"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1-3-2\
+          \ - Transform and Load"
+        setScalarVariables:
+        - - "append_metadata"
+          - "${append_metadata}"
+        - - "commit_id_name"
+          - "${commit_id_name}"
+        - - "commit_id_datatype"
+          - "${commit_id_datatype}"
+        - - "commit_id_precision"
+          - "${commit_id_precision}"
+        - - "commit_id_scale"
+          - "${commit_id_scale}"
+        - - "commit_id_database_type"
+          - "${commit_id_database_type}"
+        - - "connector"
+          - "${connector}"
+        - - "stage_table"
+          - "${stage_table}"
+        - - "join_expression"
+          - "${join_expression}"
+        - - "min_date_hour"
+          - "${min_date_hour}"
+        - - "min_filename"
+          - "${min_filename}"
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "source_version"
+          - "${source_version}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "target_table"
+          - "${target_table}"
+        - - "transformation_type"
+          - "${transformation_type}"
+        - - "stage_schema"
+          - "${stage_schema}"
+        setGridVariables:
+        - variable: "target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "target_metadata"
+              columns:
+              - "column_name"
+              - "type"
+              - "size"
+              - "precision"
+              - "database_type"
+              - "default_value"
+              - "not_null"
+              - "unique"
+        - variable: "nested_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "nested_metadata"
+              columns:
+              - "property"
+              - "alias"
+              - "format_string"
+              - "type"
+              - "size"
+              - "precision"
+              - "database_type"
+              - "default_value"
+              - "not_null"
+              - "unique"
+        - variable: "primary_key"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key"
+              columns:
+              - "key_column"
+    "\t End Success - All new data processed":
+      type: "end-success"
+      parameters:
+        componentName: "\t End Success - All new data processed"
+  variables:
+    stage_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    min_filename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    get_primary_key_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_version:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_table_exists:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_database_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    avro_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    cloud_storage_url:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    append_metadata:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    get_schema_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    transformation_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    warehouse:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_datatype:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    stage_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    connector:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    bytes_to_decimal_function:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    schema_drift_action:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    min_date_hour:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_scale:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_precision:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    join_expression:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+          default_value:
+            columnType: "TEXT"
+          not_null:
+            columnType: "TEXT"
+          unique:
+            columnType: "TEXT"
+      defaultValue: []
+    file_list:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          version:
+            columnType: "NUMBER"
+          filepath:
+            columnType: "TEXT"
+      defaultValue: []
+    nested_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          property:
+            columnType: "TEXT"
+          alias:
+            columnType: "TEXT"
+          format_string:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+          default_value:
+            columnType: "TEXT"
+          not_null:
+            columnType: "TEXT"
+          unique:
+            columnType: "TEXT"
+      defaultValue: []
+    primary_key_override:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          source_database:
+            columnType: "TEXT"
+          source_schema:
+            columnType: "TEXT"
+          source_table:
+            columnType: "TEXT"
+          source_column:
+            columnType: "TEXT"
+      defaultValue: []
+    primary_key:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          key_column:
+            columnType: "TEXT"
+      defaultValue: []
+    event_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          property:
+            columnType: "TEXT"
+          format_string:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 1
+    Build get_schema_sql:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 2
+    Read Avro schema from external table:
+      position:
+        x: 800
+        "y": 0
+      tempMetlId: 4
+    Extract nested_metadata from Avro schema:
+      position:
+        x: 1080
+        "y": 0
+      tempMetlId: 7
+    End Failure - Unable to parse metadata:
+      position:
+        x: 1280
+        "y": 140
+      tempMetlId: 8
+    Check event metadata:
+      position:
+        x: 1380
+        "y": 0
+      tempMetlId: 9
+    End Failure - Files produced by older agent version:
+      position:
+        x: 1600
+        "y": 140
+      tempMetlId: 10
+    Build get_primary_key_sql:
+      position:
+        x: 1680
+        "y": 0
+      tempMetlId: 11
+    Build join expression:
+      position:
+        x: 2080
+        "y": 0
+      tempMetlId: 17
+    Read primary key from latest metadata in stage table:
+      position:
+        x: 1880
+        "y": 0
+      tempMetlId: 18
+    Build target table metadata from nested_metadata:
+      position:
+        x: 2390
+        "y": 0
+      tempMetlId: 19
+    Prepare target table:
+      position:
+        x: 2710
+        "y": 0
+      tempMetlId: 23
+    Filter file_list for current version:
+      position:
+        x: 2990
+        "y": 0
+      tempMetlId: 24
+    Transform and Load:
+      position:
+        x: 3190
+        "y": 0
+      tempMetlId: 28
+    "\t End Success - All new data processed":
+      position:
+        x: 3390
+        "y": 0
+      tempMetlId: 32
+  notes:
+    "1":
+      position:
+        x: 520
+        "y": -180
+      size:
+        height: 298
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Get Avro schema**
+
+        - Read the Avro schema from the external table `<stage_table>_VERSION_METADATA`
+    "2":
+      position:
+        x: 1000
+        "y": -300
+      size:
+        height: 418
+        width: 200
+      theme: "light-yellow"
+      content: |
+        **Parse Avro schema**
+
+        - Parse the Avro schema to extract the **nested_metadata** grid var.
+        - This is used to create target table and check for schema drift.
+    "3":
+      position:
+        x: 1280
+        "y": -300
+      size:
+        height: 418
+        width: 240
+      theme: "light-yellow"
+      content: |
+        **Check event metadata**
+
+        From rev 3.0.0, we are using
+
+        * __metadata.sequence__ to sort the change events for Postgres sources.  If the field is missing, fail the pipeline execution.
+
+        * __rs_id__ and __ssn__ to sort change events for Oracle sources.  If either field is missing, fail the pipeline execution
+    "4":
+      position:
+        x: 1600
+        "y": -300
+      size:
+        height: 418
+        width: 600
+      theme: "light-yellow"
+      content: |-
+        **Read primary key**
+
+        Try to read the primary key from data in the current **version**, and store in **primary_key** grid variable.
+
+        Use the **primary_key** grid variable to build the Join Expression for the Table Update component in the transformation job.
+
+        The join expression is required to merge changes into the target table for Copy Table transformation types.  If no primary key is detected, the transformation type will fall back to Change Log.
+    "5":
+      position:
+        x: 2280
+        "y": -300
+      size:
+        height: 418
+        width: 280
+      theme: "light-yellow"
+      content: |-
+        **Build target metadata for current source_version**
+
+        Use __nested_metadata__ to create __target_metadata__
+
+        Either add all CDC metadata columns to  __target_metadata__, or just those required by the current __transformation_type__
+
+        If implementing soft deletes, add the MTLN_CDC_DELETED column to the __target_metadata__.
+    "6":
+      position:
+        x: 2630
+        "y": -180
+      size:
+        height: 298
+        width: 210
+      theme: "light-yellow"
+      content: |
+        **Prepare target table**
+
+        If the target table exists, check for schema drift
+
+        Else create the target table using __target_metadata__
+    "7":
+      position:
+        x: 2910
+        "y": -180
+      size:
+        height: 298
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Transform and load new data from stage table into target table**
+
+        For observability, print which files the transformation job will be processing.  If more than 1000, only the first 1000 are printed.
+    "8":
+      position:
+        x: 2000
+        "y": 120
+      size:
+        height: 228
+        width: 200
+      theme: "red"
+      content: |-
+        Bug [DPCT-414](https://matillion.atlassian.net/browse/DPCT-414) prevents Python Pushdown updating a grid variable to an empty list.
+
+        Workaround is to filter the grid primary_key_override here, rather than in the parent pipeline.

@@ -1,0 +1,205 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Use source schemas?"
+      parameters:
+        componentName: "Start"
+    Use source schemas?:
+      type: "if"
+      transitions:
+        "true":
+        - "Build check_schema_sql"
+        "false":
+        - "Join paths"
+      parameters:
+        componentName: "Use source schemas?"
+        mode: "Simple"
+        condition:
+        - - "use_source_schemas"
+          - "Is"
+          - "Equal to"
+          - "y"
+        combineConditions: "And"
+    Build check_schema_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check target schema exists"
+      parameters:
+        componentName: "Build check_schema_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "check_schema_sql = \\\nf\"\"\"SELECT \n    count(1) AS \"SCHEMA_EXISTS\"\
+          \nFROM \n    \"{target_database}\".\"INFORMATION_SCHEMA\".\"SCHEMATA\"\n\
+          WHERE \n    \"CATALOG_NAME\" = '{target_database}'\n    AND \"SCHEMA_NAME\"\
+          \ = '{target_schema}'\"\"\"\n\nprint(f'check_schema_sql: \\n{check_schema_sql}')\n\
+          context.updateVariable('check_schema_sql', check_schema_sql)\n"
+        scriptTimeout: "360"
+    Check target schema exists:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Target schema exists?"
+      parameters:
+        componentName: "Check target schema exists"
+        mode: "Advanced"
+        query: "${check_schema_sql}"
+        scalarVariableMapping:
+        - - "schema_exists"
+          - "SCHEMA_EXISTS"
+    Target schema exists?:
+      type: "if"
+      transitions:
+        "true":
+        - "Join paths"
+        "false":
+        - "Build create_schema_sql"
+      parameters:
+        componentName: "Target schema exists?"
+        mode: "Simple"
+        condition:
+        - - "schema_exists"
+          - "Is"
+          - "Equal to"
+          - "1"
+        combineConditions: "And"
+    Build create_schema_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Create target schema"
+      parameters:
+        componentName: "Build create_schema_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          create_schema_sql = f'CREATE SCHEMA IF NOT EXISTS "{target_database}"."{target_schema}"'
+
+          print(f'create_schema_sql: \n{create_schema_sql}')
+          context.updateVariable('create_schema_sql', create_schema_sql)
+        scriptTimeout: "360"
+    Create target schema:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Join paths"
+      parameters:
+        componentName: "Create target schema"
+        sqlScript: "${create_schema_sql}"
+    Join paths:
+      type: "or"
+      transitions:
+        unconditional:
+        - "End Success"
+      parameters:
+        componentName: "Join paths"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+  variables:
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    schema_exists:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    create_schema_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    check_schema_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    use_source_schemas:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": -120
+      tempMetlId: 1
+    Use source schemas?:
+      position:
+        x: 200
+        "y": -120
+      tempMetlId: 2
+    Build check_schema_sql:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 3
+    Check target schema exists:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 4
+    Target schema exists?:
+      position:
+        x: 800
+        "y": 0
+      tempMetlId: 5
+    Build create_schema_sql:
+      position:
+        x: 1000
+        "y": 120
+      tempMetlId: 6
+    Create target schema:
+      position:
+        x: 1200
+        "y": 120
+      tempMetlId: 7
+    Join paths:
+      position:
+        x: 1400
+        "y": 0
+      tempMetlId: 8
+    End Success:
+      position:
+        x: 1600
+        "y": 0
+      tempMetlId: 9
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -320
+      size:
+        height: 558
+        width: 1400
+      theme: "light-yellow"
+      content: "**Check target schema exists**\n\nIf using source schemas, \n- Check\
+        \ target schema exists.\n- Create if not."

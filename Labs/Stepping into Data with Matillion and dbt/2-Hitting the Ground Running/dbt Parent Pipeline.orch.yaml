@@ -1,0 +1,63 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run load charlies_shoe_emporium data"
+      parameters:
+        componentName: "Start"
+    Run load charlies_shoe_emporium data:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Lacing Up Getting Started with Matillion and dbt"
+      parameters:
+        componentName: "Run load charlies_shoe_emporium data"
+        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/0-Load Data/load\
+          \ charlies_shoe_emporium data"
+        setScalarVariables:
+        setGridVariables:
+    Run Lacing Up Getting Started with Matillion and dbt:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Hitting the Ground Running"
+      parameters:
+        componentName: "Run Lacing Up Getting Started with Matillion and dbt"
+        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/1-Lacing\
+          \ Up/Lacing Up Getting Started with Matillion and dbt"
+        setScalarVariables:
+        setGridVariables:
+    Run Hitting the Ground Running:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Run Hitting the Ground Running"
+        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/2-Hitting\
+          \ the Ground Running/Hitting the Ground Running"
+        setScalarVariables:
+        setGridVariables:
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Run load charlies_shoe_emporium data:
+      position:
+        x: 150
+        "y": 0
+      tempMetlId: 2
+    Run Lacing Up Getting Started with Matillion and dbt:
+      position:
+        x: 330
+        "y": 0
+      tempMetlId: 3
+    Run Hitting the Ground Running:
+      position:
+        x: 530
+        "y": 0
+      tempMetlId: 4

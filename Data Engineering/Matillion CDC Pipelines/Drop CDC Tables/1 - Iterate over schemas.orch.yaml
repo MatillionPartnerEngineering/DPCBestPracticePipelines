@@ -1,0 +1,511 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Print version"
+      parameters:
+        componentName: "Start"
+    Print version:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Standardize input"
+      parameters:
+        componentName: "Print version"
+        variablesToPrint:
+        - - "pipeline_version"
+        prefixText:
+        includeVariableName: "Yes"
+    Build external table names:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print external table names"
+      parameters:
+        componentName: "Build external table names"
+        scalarsToUpdate:
+        - - "external_table"
+          - "${external_table.toUpperCase()}"
+        - - "external_metadata_table"
+          - "${external_table.toUpperCase()}_VERSION_METADATA"
+    Print external table names:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Build list_tables_sql"
+      parameters:
+        componentName: "Print external table names"
+        variablesToPrint:
+        - - "external_table"
+        - - "external_metadata_table"
+        - - "cdc_tables"
+        prefixText:
+        includeVariableName: "Yes"
+    End Failure - [Environment Default] not supported as a parameter:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - [Environment Default] not supported as a parameter"
+    Get list of source tables in pipeline:
+      type: "query-to-grid"
+      transitions:
+        unconditional:
+        - "Build list of all CDC tables"
+      parameters:
+        componentName: "Get list of source tables in pipeline"
+        mode: "Advanced"
+        query: "${list_tables_sql}"
+        gridVariable: "source_tables"
+        gridVariableMapping:
+        - - "DATABASE"
+          - "source_database"
+        - - "SCHEMA"
+          - "source_schema"
+        - - "TABLE"
+          - "source_table"
+    Build list_tables_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Get list of source tables in pipeline"
+      parameters:
+        componentName: "Build list_tables_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "list_tables_sql = \\\nf'''SELECT \n    SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -9), '=', -1) AS \"DATABASE\",\n    SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -8), '=', -1) AS \"SCHEMA\",\n    SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -7), '=', -1) AS \"TABLE\"\nFROM \n    TABLE(\"{target_database}\"\
+          .\"INFORMATION_SCHEMA\".\"EXTERNAL_TABLE_FILES\"(table_name=>'\"{target_database}\"\
+          .\"{target_schema}\".\"{external_table}\"'))\nGROUP BY ALL\nORDER BY\n \
+          \   \"DATABASE\",\n    \"SCHEMA\",\n    \"TABLE\"'''\n\nprint(f'list_tables_sql:\
+          \ \\n{list_tables_sql}')\ncontext.updateVariable('list_tables_sql', list_tables_sql)\n"
+        scriptTimeout: "360"
+    Build list of all CDC tables:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Drop tables?"
+      parameters:
+        componentName: "Build list of all CDC tables"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          if not target_prefix:
+              target_prefix = ''
+
+          cdc_tables = [
+              [target_schema, external_table],
+              [target_schema, external_metadata_table],
+          ]
+
+          for source_database, source_schema, source_table in source_tables:
+
+              if use_source_schemas == 'y':
+                  schema = source_schema.upper()
+              else:
+                  schema = target_schema
+
+              if fully_qualify_target_table == 'y':
+                  fully_qualified_prefix = f'{source_database}_{source_schema}_'
+              else:
+                  fully_qualified_prefix = ''
+
+              target_table = f'{target_prefix}{fully_qualified_prefix}{source_table}'.strip().upper()
+
+              cdc_tables.append(
+                  [schema, target_table]
+              )
+
+          cdc_schemas = [
+              [schema] for schema in set(schema for schema, table in cdc_tables)
+          ]
+          print('cdc_schemas:')
+          for row in cdc_schemas:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('cdc_schemas', cdc_schemas)
+          print()
+
+          print('cdc_tables:')
+          for row in cdc_tables:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('cdc_tables', cdc_tables)
+        scriptTimeout: "360"
+    Iterate over CDC schemas:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "End Success - Tables dropped"
+      iterationTarget: "Drop tables in schema"
+      parameters:
+        componentName: "Iterate over CDC schemas"
+        gridVariable: "cdc_schemas"
+        gridIteratorVariableMapping:
+        - - "schema"
+          - "cdc_schema"
+        breakOnFailure: "Yes"
+        concurrency: "Sequential"
+    Drop tables in schema:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Drop tables in schema"
+        orchestrationJob: "Matillion CDC Pipelines/Drop CDC Tables/1-1 - Drop tables in schema"
+        setScalarVariables:
+        - - "target_database"
+          - "${target_database}"
+        - - "cdc_schema"
+          - "${cdc_schema}"
+        setGridVariables:
+        - variable: "cdc_tables"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "cdc_tables"
+              columns:
+              - "schema"
+              - "table"
+    Drop tables?:
+      type: "if"
+      transitions:
+        "true":
+        - "Iterate over CDC schemas"
+        "false":
+        - "End Success - No tables dropped"
+      parameters:
+        componentName: "Drop tables?"
+        mode: "Simple"
+        condition:
+        - - "drop_tables"
+          - "Is"
+          - "Equal to"
+          - "y"
+        combineConditions: "And"
+    End Success - Tables dropped:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - Tables dropped"
+    End Success - No tables dropped:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - No tables dropped"
+    Standardize input:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "[Environment Default] passed as parameter?"
+      parameters:
+        componentName: "Standardize input"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          def standardize_input(value: str) -> str:
+              if value.lower() in ('yes', 'y', 'true', 't', '1'):
+                  return 'y'
+              else:
+                  return 'n'
+
+
+          use_source_schemas = standardize_input(use_source_schemas)
+          print(f'use_source_schemas: {use_source_schemas!r}')
+          context.updateVariable('use_source_schemas', use_source_schemas)
+
+          fully_qualify_target_table = standardize_input(fully_qualify_target_table)
+          print(f'fully_qualify_target_table: {fully_qualify_target_table!r}')
+          context.updateVariable('fully_qualify_target_table', fully_qualify_target_table)
+
+          drop_tables = standardize_input(drop_tables)
+          print(f'drop_tables: {drop_tables!r}')
+          context.updateVariable('drop_tables', drop_tables)
+        scriptTimeout: "360"
+    '[Environment Default] passed as parameter?':
+      type: "if"
+      transitions:
+        "true":
+        - "End Failure - [Environment Default] not supported as a parameter"
+        "false":
+        - "Build external table names"
+      parameters:
+        componentName: "[Environment Default] passed as parameter?"
+        mode: "Advanced"
+        condition1: "target_database.toLowerCase() == \"[environment default]\" ||\
+          \ target_schema.toLowerCase() == \"[environment default]\""
+  variables:
+    external_metadata_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    pipeline_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "2.0.0"
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    fully_qualify_target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Y"
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    list_tables_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    drop_tables:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "N"
+    cdc_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    external_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_prefix:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    use_source_schemas:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "N"
+    source_tables:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          source_database:
+            columnType: "TEXT"
+          source_schema:
+            columnType: "TEXT"
+          source_table:
+            columnType: "TEXT"
+      defaultValue: []
+    cdc_schemas:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          schema:
+            columnType: "TEXT"
+      defaultValue: []
+    cdc_tables:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          schema:
+            columnType: "TEXT"
+          table:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: -200
+        "y": 0
+      tempMetlId: 1
+    Print version:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 2
+    Build external table names:
+      position:
+        x: 760
+        "y": 0
+      tempMetlId: 3
+    Print external table names:
+      position:
+        x: 960
+        "y": 0
+      tempMetlId: 4
+    End Failure - [Environment Default] not supported as a parameter:
+      position:
+        x: 680
+        "y": 140
+      tempMetlId: 6
+    Get list of source tables in pipeline:
+      position:
+        x: 1440
+        "y": 0
+      tempMetlId: 7
+    Build list_tables_sql:
+      position:
+        x: 1240
+        "y": 0
+      tempMetlId: 8
+    Build list of all CDC tables:
+      position:
+        x: 1720
+        "y": 0
+      tempMetlId: 9
+    Iterate over CDC schemas:
+      position:
+        x: 2200
+        "y": -10
+      tempMetlId: 10
+    Drop tables in schema:
+      position:
+        x: 2200
+        "y": -10
+      tempMetlId: 11
+    Drop tables?:
+      position:
+        x: 2000
+        "y": 0
+      tempMetlId: 12
+    End Success - Tables dropped:
+      position:
+        x: 2400
+        "y": 0
+      tempMetlId: 13
+    End Success - No tables dropped:
+      position:
+        x: 2200
+        "y": 140
+      tempMetlId: 14
+    Standardize input:
+      position:
+        x: 280
+        "y": 0
+      tempMetlId: 15
+    '[Environment Default] passed as parameter?':
+      position:
+        x: 480
+        "y": 0
+      tempMetlId: 16
+  notes:
+    "1":
+      position:
+        x: -80
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Print version**
+
+        Print pipeline version to the task history, to help support cases
+    "2":
+      position:
+        x: 200
+        "y": -200
+      size:
+        height: 318
+        width: 400
+      theme: "light-yellow"
+      content: |
+        **Clean up input parameters**
+
+        * Standardize input parameters
+        * Check for [Environment Default] values
+    "3":
+      position:
+        x: 680
+        "y": -200
+      size:
+        height: 318
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Build external table names**
+
+        Ensure external table name is upper case.
+    "4":
+      position:
+        x: 1160
+        "y": -200
+      size:
+        height: 318
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Get list of source tables**
+
+        Query the EXTERNAL_TABLE_FILES function to obtain a list of all source tables in this CDC pipeline
+
+        Note: If the external table does not exist, the Query Result to Grid will error, but the pipeline will complete successfully
+    "5":
+      position:
+        x: 1640
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: "**Build list of all CDC tables**"
+    "6":
+      position:
+        x: 1920
+        "y": -200
+      size:
+        height: 318
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Iterate over CDC schemas**
+
+        Iterate over the schemas containing CDC tables
+    "7":
+      position:
+        x: -1140
+        "y": -200
+      size:
+        height: 318
+        width: 860
+      theme: "light-green"
+      content: |-
+        **Change log**
+
+        2.0.0 -----------------------------------------------------------------------------------------------------------
+        - General availability

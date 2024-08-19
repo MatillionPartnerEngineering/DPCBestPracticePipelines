@@ -1,0 +1,375 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Target table exists?"
+      parameters:
+        componentName: "Start"
+    Target table exists?:
+      type: "if"
+      transitions:
+        "true":
+        - "Read current metadata for target table"
+        "false":
+        - "Create target table"
+      parameters:
+        componentName: "Target table exists?"
+        mode: "Simple"
+        condition:
+        - - "target_table_exists"
+          - "Is"
+          - "Greater than"
+          - "0"
+        combineConditions: "And"
+    Create target table:
+      type: "create-table"
+      transitions:
+        success:
+        - "End Success - Target table created"
+      parameters:
+        componentName: "Create target table"
+        createReplace: "Create"
+        database: "${target_database}"
+        schema: "${target_schema}"
+        newTableName: "${target_table}"
+        tableType: "Permanent"
+        columns:
+          fromGrid:
+            variable: "latest_target_metadata"
+            columns:
+            - "column_name"
+            - "type"
+            - "size"
+            - "precision"
+            - "default_value"
+            - "not_null"
+            - "unique"
+            - ""
+        defaultDdlCollation:
+        primaryKeys:
+          fromGrid:
+            variable: "primary_key"
+            columns:
+            - "key_column"
+        clusteringKeys:
+        dataRetentionTimeInDays:
+        comment:
+    End Success - Target table created:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - Target table created"
+    End Success - Target table ready for new data:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - Target table ready for new data"
+    Print target metadata:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check data type of MTLN_CDC_SEQUENCE_NUMBER"
+      parameters:
+        componentName: "Print target metadata"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          print('existing_target_metadata:')
+          for x in existing_target_metadata:
+              print("\t".join(map(str,x)))
+          print()
+
+          print('latest_target_metadata:')
+          for x in latest_target_metadata:
+              print("\t".join(map(str,x)))
+        scriptTimeout: "360"
+    Check data type of MTLN_CDC_SEQUENCE_NUMBER:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check metadata match"
+        failure:
+        - "End Failure - Incorrect data type for MTLN_CDC_SEQUENCE_NUMBER"
+      parameters:
+        componentName: "Check data type of MTLN_CDC_SEQUENCE_NUMBER"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          if connector not in ('oracle', 'postgresql'):
+              print(f"Source connector is {connector!r}, so no need to check data type for 'mtln_cdc_sequence_number'")
+              return
+
+          for column, data_type, *_ in existing_target_metadata:
+              if column == 'MTLN_CDC_SEQUENCE_NUMBER':
+                  if data_type == 'NUMBER':
+                      err_msg = (
+                          'The target table was created with an earlier revision of the Matillion ETL shared job.\n'
+                          f'For {connector!r} pipelines, you must drop the stage and target tables and re-run this pipeline'
+                          'to re-create the tables.'
+                      )
+                      raise Exception(err_msg)
+                  else:
+                      print("The data type for 'MTLN_CDC_SEQUENCE_NUMBER' is already correct in the target table")
+                  break
+        scriptTimeout: "360"
+    End Failure - Incorrect data type for MTLN_CDC_SEQUENCE_NUMBER:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Incorrect data type for MTLN_CDC_SEQUENCE_NUMBER"
+    Check metadata match:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "End Success - Target table ready for new data"
+      parameters:
+        componentName: "Check metadata match"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1-3-1-1\
+          \ - Check metadata match"
+        setScalarVariables:
+        - - "schema_drift_action"
+          - "${schema_drift_action}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "target_table"
+          - "${target_table}"
+        setGridVariables:
+        - variable: "existing_target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "existing_target_metadata"
+              columns:
+              - "column_name"
+              - "type"
+              - "size"
+              - "precision"
+              - "database_type"
+        - variable: "latest_target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "latest_target_metadata"
+              columns:
+              - "column_name"
+              - "type"
+              - "size"
+              - "precision"
+              - "database_type"
+    Read current metadata for target table:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Print target metadata"
+      parameters:
+        componentName: "Read current metadata for target table"
+        mode: "Advanced"
+        query: "SELECT\n    \"COLUMN_NAME\",\n    CASE \"DATA_TYPE\" \n        WHEN\
+          \ 'TEXT' THEN 'VARCHAR'\n        ELSE \"DATA_TYPE\"  \n    END AS \"TYPE\"\
+          ,\n    CASE \"DATA_TYPE\" \n        WHEN 'TEXT' THEN 'VARCHAR(' || \"CHARACTER_MAXIMUM_LENGTH\"\
+          \ || ')'\n        WHEN 'NUMBER' THEN 'NUMBER(' || \"NUMERIC_PRECISION\"\
+          \ || ', ' || \"NUMERIC_SCALE\" || ')'\n        WHEN 'TIME' THEN 'TIME('\
+          \ || \"DATETIME_PRECISION\" || ')'\n        ELSE \"DATA_TYPE\"\n    END\
+          \ AS \"DATABASE_TYPE\",\n    CASE \"DATA_TYPE\"\n        WHEN 'TEXT' THEN\
+          \ \"CHARACTER_MAXIMUM_LENGTH\"\n        WHEN 'NUMBER' THEN \"NUMERIC_PRECISION\"\
+          \n        WHEN 'TIMESTAMP_LTZ' THEN \"DATETIME_PRECISION\"\n        WHEN\
+          \ 'TIMESTAMP_NTZ' THEN \"DATETIME_PRECISION\"\n        WHEN 'TIMESTAMP_TZ'\
+          \ THEN \"DATETIME_PRECISION\"\n        ELSE 0\n    END AS \"SIZE\",\n  \
+          \  CASE \"DATA_TYPE\" \n        WHEN 'NUMBER' THEN \"NUMERIC_SCALE\"\n \
+          \       ELSE 0\n    END AS \"PRECISION\"\nFROM\n    \"${target_database}\"\
+          .\"INFORMATION_SCHEMA\".\"COLUMNS\"\nWHERE\n    \"TABLE_CATALOG\" = '${target_database}'\n\
+          \    AND \"TABLE_SCHEMA\" = '${target_schema}'\n    AND \"TABLE_NAME\" =\
+          \ '${target_table}'\nORDER BY\n    \"ORDINAL_POSITION\""
+        gridVariable: "existing_target_metadata"
+        gridVariableMapping:
+        - - "COLUMN_NAME"
+          - "column_name"
+        - - "TYPE"
+          - "type"
+        - - "SIZE"
+          - "size"
+        - - "PRECISION"
+          - "precision"
+        - - "DATABASE_TYPE"
+          - "database_type"
+  variables:
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_table_exists:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    connector:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    schema_drift_action:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_metadata_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    existing_target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+      defaultValue: []
+    latest_target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+          default_value:
+            columnType: "TEXT"
+          not_null:
+            columnType: "TEXT"
+          unique:
+            columnType: "TEXT"
+      defaultValue: []
+    primary_key:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          key_column:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Target table exists?:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    Create target table:
+      position:
+        x: 400
+        "y": 120
+      tempMetlId: 3
+    End Success - Target table created:
+      position:
+        x: 600
+        "y": 260
+      tempMetlId: 4
+    End Success - Target table ready for new data:
+      position:
+        x: 1480
+        "y": 0
+      tempMetlId: 5
+    Print target metadata:
+      position:
+        x: 880
+        "y": 0
+      tempMetlId: 9
+    Check data type of MTLN_CDC_SEQUENCE_NUMBER:
+      position:
+        x: 1080
+        "y": 0
+      tempMetlId: 10
+    End Failure - Incorrect data type for MTLN_CDC_SEQUENCE_NUMBER:
+      position:
+        x: 1280
+        "y": 140
+      tempMetlId: 11
+    Check metadata match:
+      position:
+        x: 1280
+        "y": 0
+      tempMetlId: 12
+    Read current metadata for target table:
+      position:
+        x: 680
+        "y": 0
+      tempMetlId: 14
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -200
+      size:
+        height: 438
+        width: 400
+      theme: "light-yellow"
+      content: |
+        **Prepare target table**
+
+        If the target table exists, check for schema drift
+
+        Else create the target table using __target_metadata__
+    "2":
+      position:
+        x: 600
+        "y": -200
+      size:
+        height: 318
+        width: 800
+      theme: "light-yellow"
+      content: "**Read current metadata for target table**"

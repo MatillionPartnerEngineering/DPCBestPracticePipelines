@@ -1,0 +1,615 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Build table_exists_sql"
+      parameters:
+        componentName: "Start"
+    Build table_exists_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Check external table exists"
+      parameters:
+        componentName: "Build table_exists_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "table_exists_sql = \\\nf\"\"\"SELECT \n  COALESCE(ANY_VALUE(UPPER(\"\
+          TABLE_TYPE\")), 'NO TABLE') \"TABLE_TYPE\"\nFROM \n  \"${target_database}\"\
+          .\"INFORMATION_SCHEMA\".\"TABLES\"\nWHERE \n  \"TABLE_SCHEMA\" = '${target_schema}'\n\
+          \  AND \"TABLE_NAME\" = '${external_table}'\"\"\"\n\nprint(f'table_exists_sql:\
+          \ \\n{table_exists_sql}')\ncontext.updateVariable('table_exists_sql', table_exists_sql)\n"
+        scriptTimeout: "360"
+    Check external table exists:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Table exists and is an external table?"
+      parameters:
+        componentName: "Check external table exists"
+        mode: "Advanced"
+        query: "${table_exists_sql}"
+        scalarVariableMapping:
+        - - "table_type"
+          - "TABLE_TYPE"
+    Table exists and is an external table?:
+      type: "if"
+      transitions:
+        "true":
+        - "Read external table metadata"
+        "false":
+        - "External table name is available?"
+      parameters:
+        componentName: "Table exists and is an external table?"
+        mode: "Simple"
+        condition:
+        - - "table_type"
+          - "Is"
+          - "Equal to"
+          - "EXTERNAL TABLE"
+        combineConditions: "And"
+    External table name is available?:
+      type: "if"
+      transitions:
+        "true":
+        - "Validate cloud_storage_url"
+        "false":
+        - "Table exists but is not an external table"
+      parameters:
+        componentName: "External table name is available?"
+        mode: "Simple"
+        condition:
+        - - "table_type"
+          - "Is"
+          - "Equal to"
+          - "NO TABLE"
+        combineConditions: "And"
+    Table exists but is not an external table:
+      type: "python-pushdown"
+      transitions:
+        unconditional:
+        - "End Failure - Incorrect name for external table"
+      parameters:
+        componentName: "Table exists but is not an external table"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          err_msg = f'A table with the name {external_table!r} exists but has type {table_type!r}.  Please try a different name for the external table.'
+          raise Exception(err_msg)
+        scriptTimeout: "360"
+    End Failure - Incorrect name for external table:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Incorrect name for external table"
+    Validate cloud_storage_url:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build get_stage_url_sql"
+        failure:
+        - "End Failure - Invalid cloud_storage_url"
+      parameters:
+        componentName: "Validate cloud_storage_url"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "def validate_host_path(host_path: str, num_parts: int) -> bool:\n\
+          \    \"\"\"\n    Validate that the host_path can be split into num_parts,\
+          \ \n    and that no parts are empty strings\n    \"\"\"\n    host_path_list\
+          \ = host_path.split('/', num_parts - 1)\n    \n    if len(host_path_list)\
+          \ != num_parts:\n        return False\n      \n    if '' in host_path_list[:-1]:\n\
+          \        return False\n          \n    return True\n\n  \nif not cloud_storage_url[-1:]\
+          \ == '/':\n    cloud_storage_url = cloud_storage_url + '/'\n    context.updateVariable('cloud_storage_url',\
+          \ cloud_storage_url)\n    \nprint(f'cloud_storage_url: {cloud_storage_url!r}')\n\
+          print()\n\n# split the cloud_storage_url into protocol and host/path\nurl_list\
+          \ = cloud_storage_url.split('://', 1)\n\n# check we could split the string\
+          \ and extract a protocol\nif len(url_list) == 1:\n    err_msg = f'Unable\
+          \ to determine the protocol from the cloud_storage_url {cloud_storage_url!r}'\n\
+          \    raise Exception(err_msg)\n\n# unpack the list\nprotocol, host_path\
+          \ = url_list\nprotocol = protocol.lower()\n\n# check protocol is supported\n\
+          supported_protocols = ('azure', 's3', 'gs', 'gcs')\nif protocol not in supported_protocols:\n\
+          \    err_msg = f'The protocol {protocol!r} was identifed from the cloud_storage_url\
+          \ {cloud_storage_url!r}, but the only supported protocols are {\", \".join(supported_protocols)}'\n\
+          \    raise Exception(err_msg)\n\n# s3 cloud_storage_urls must have the format\
+          \ s3://bucket/prefix/\nif protocol == 's3' and not validate_host_path(host_path,\
+          \ 2):\n    err_msg = f'A cloud_storage_url for S3 must have the format \"\
+          s3://bucket/prefix/\" but is actually {cloud_storage_url!r}'\n    raise\
+          \ Exception(err_msg)\n    \n# azure cloud_storage_urls must have the format\
+          \ azure://account/container/prefix/\nelif protocol == 'azure' and not validate_host_path(host_path,\
+          \ 3):\n    err_msg = f'A cloud_storage_url for Azure must have the format\
+          \ \"azure://account/container/prefix/\" but is actually {cloud_storage_url!r}'\n\
+          \    raise Exception(err_msg)\n\n# google cloud_storage_urls must have the\
+          \ format gs://bucket/prefix/ or gcs://bucket/prefix/\nelif protocol in ('gs',\
+          \ 'gcs') and not validate_host_path(host_path, 2):\n    err_msg = f'A cloud_storage_url\
+          \ for Google Cloud Storage must have the format \"gs://bucket/prefix/\"\
+          \ or \"gcs://bucket/prefix/\" but is actually {cloud_storage_url!r}'\n \
+          \   raise Exception(err_msg)\n    "
+        scriptTimeout: "360"
+    End Failure - Invalid cloud_storage_url:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Invalid cloud_storage_url"
+    Build get_stage_url_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Get url for external stage"
+      parameters:
+        componentName: "Build get_stage_url_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "get_stage_url_sql = \\\nf\"\"\"SELECT \n    \"STAGE_URL\"\n\
+          FROM \"{target_database}\".\"INFORMATION_SCHEMA\".\"STAGES\"\nWHERE\n  \
+          \  \"STAGE_TYPE\" = 'External Named'\n    AND \"STAGE_CATALOG\" = '{target_database}'\n\
+          \    AND \"STAGE_SCHEMA\" = '{target_schema}'\n    AND \"STAGE_NAME\" =\
+          \ '{external_stage}'\"\"\"\n\nprint(f'get_stage_url_sql: \\n{get_stage_url_sql}')\n\
+          context.updateVariable('get_stage_url_sql', get_stage_url_sql)\n"
+        scriptTimeout: "360"
+    Get url for external stage:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Check for external table relative_path"
+      parameters:
+        componentName: "Get url for external stage"
+        mode: "Advanced"
+        query: "${get_stage_url_sql}"
+        scalarVariableMapping:
+        - - "stage_url"
+          - "STAGE_URL"
+    Check for external table relative_path:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Create External Table"
+        failure:
+        - "End Failure - Cloud storage URL not within external stage"
+      parameters:
+        componentName: "Check for external table relative_path"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          # standardise GCS protocol to 'gcs' to match Snowflake
+          if cloud_storage_url.startswith('gs://'):
+              print("Updating protocol from 'gs' to 'gcs' to match Snowflake's format")
+              cloud_storage_url = f'gcs://{cloud_storage_url[5:]}'
+
+          print(f'Cloud Storage URL: {cloud_storage_url!r}')
+          print(f'Snowflake external stage: {stage_url!r}')
+          print()
+
+          if not stage_url:
+              err_msg = f'Unable to lookup the URL for the Snowflake external stage "{target_database}"."{target_schema}"."{external_stage}"'
+              raise Exception(err_msg)
+
+          if not cloud_storage_url.startswith(stage_url):
+              err_msg = 'Unable to proceed as the Cloud Storage Location is not within the Snowflake external stage.'
+              raise Exception(err_msg)
+
+          relative_path = cloud_storage_url[len(stage_url):]
+
+          if relative_path:
+              print(f'relative_path: {relative_path!r}')
+              context.updateVariable('relative_path', relative_path)
+          else:
+              print(f'No relative_path as stage URL is the same as the Cloud Storage URL')
+        scriptTimeout: "360"
+    Create External Table:
+      type: "create-external-table-sf"
+      transitions:
+        success:
+        - "End Success - External table created"
+      parameters:
+        componentName: "Create External Table"
+        createReplace: "Create"
+        database: "${target_database}"
+        schema: "${target_schema}"
+        newTableName: "${external_table}"
+        partitionColumns:
+          fromGrid:
+            variable: "partition_columns"
+            columns:
+            - "name"
+            - "type"
+            - "size"
+            - "precision"
+            - "partition_expression"
+        stageDatabase: "${target_database}"
+        stageSchema: "${target_schema}"
+        stage: "${external_stage}"
+        relativePath: "${relative_path}"
+        pattern: "${pattern}"
+        format: "[Custom]"
+        fileType: "${file_type}"
+        compression: "AUTO"
+    End Success - External table created:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - External table created"
+    End Failure - Cloud storage URL not within external stage:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Cloud storage URL not within external stage"
+    Refresh External Tables:
+      type: "refresh-external-table"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Refresh External Tables"
+        database: "${target_database}"
+        schema: "${target_schema}"
+        targetTable: "${external_table}"
+        relativeSubpath:
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    Read external table metadata:
+      type: "table-metadata-to-grid"
+      transitions:
+        success:
+        - "Check external table metadata"
+      parameters:
+        componentName: "Read external table metadata"
+        database: "${target_database}"
+        schema: "${target_schema}"
+        gridVariable: "table_metadata"
+        gridVariableMapping:
+        - "Name"
+        - "Type"
+        - "Size"
+        - "Precision"
+        targetTable: "${external_table}"
+    Check external table metadata:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Refresh External Tables"
+        failure:
+        - "End Failure - Invalid metadata for external table"
+      parameters:
+        componentName: "Check external table metadata"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          from pprint import pprint
+
+
+          def convert_grid_to_set(grid: list) -> set:
+              """Convert grid variable to a set."""
+              new_set = set()
+              for row in grid:
+                  new_set.add(tuple(row))
+              return new_set
+
+          def standardize_type(datatype: str) -> str:
+              if datatype in ('TIMESTAMP_LTZ', 'TIMESTAMP_NTZ', 'TIMESTAMP_TZ'):
+                  return 'TIMESTAMP'
+              else:
+                  return datatype
+
+
+          # build expected metadata from partition_columns
+          expected_metadata_set = {
+              (name, standardize_type(datatype), size, precision) for name, datatype, size, precision, *_ in partition_columns
+          }
+          expected_metadata_set.add(
+              ('VALUE', 'VARIANT', '0', '0')
+          )
+
+          print('expected_metadata_set:')
+          pprint(expected_metadata_set, width=150)
+          print()
+
+          # build actual metadata from table_metadata
+          actual_metadata_set = convert_grid_to_set(table_metadata)
+
+          print('actual_metadata_set:')
+          pprint(actual_metadata_set, width=150)
+          print()
+
+          # check for missing or unexpected columns
+          actual_not_in_expected = actual_metadata_set - expected_metadata_set
+          expected_not_in_actual = expected_metadata_set - actual_metadata_set
+
+          # if all metadata matches, exit
+          if not(actual_not_in_expected or expected_not_in_actual):
+              print('Expected metadata matches actual metadata for external table.')
+              return
+
+          print('Unexpected columns in external table:')
+          pprint(actual_not_in_expected)
+          print()
+
+          print('Missing columns from external table:')
+          pprint(expected_not_in_actual)
+          print()
+
+          err_msg = (f'The metadata for "{target_database}"."{target_schema}"."{external_table}" '
+                      'does not match the expected metadata. \nIf this table was created by '
+                      'the Matillion ETL shared job, all external and target tables must be '
+                      'dropped before using these pipelines.')
+          raise Exception(err_msg)
+        scriptTimeout: "360"
+    End Failure - Invalid metadata for external table:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Invalid metadata for external table"
+  variables:
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    external_stage:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    cloud_storage_url:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    file_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    pattern:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    get_stage_url_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    external_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    table_exists_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    relative_path:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    stage_url:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    table_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    partition_columns:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "TEXT"
+          precision:
+            columnType: "TEXT"
+          partition_expression:
+            columnType: "TEXT"
+      defaultValue: []
+    table_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "TEXT"
+          precision:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Build table_exists_sql:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    Check external table exists:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 3
+    Table exists and is an external table?:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 4
+    External table name is available?:
+      position:
+        x: 800
+        "y": 120
+      tempMetlId: 5
+    Table exists but is not an external table:
+      position:
+        x: 1000
+        "y": 240
+      tempMetlId: 6
+    End Failure - Incorrect name for external table:
+      position:
+        x: 1200
+        "y": 380
+      tempMetlId: 7
+    Validate cloud_storage_url:
+      position:
+        x: 1280
+        "y": 120
+      tempMetlId: 8
+    End Failure - Invalid cloud_storage_url:
+      position:
+        x: 1480
+        "y": 260
+      tempMetlId: 9
+    Build get_stage_url_sql:
+      position:
+        x: 1480
+        "y": 120
+      tempMetlId: 10
+    Get url for external stage:
+      position:
+        x: 1680
+        "y": 120
+      tempMetlId: 11
+    Check for external table relative_path:
+      position:
+        x: 1880
+        "y": 120
+      tempMetlId: 12
+    Create External Table:
+      position:
+        x: 2160
+        "y": 120
+      tempMetlId: 13
+    End Success - External table created:
+      position:
+        x: 2360
+        "y": 120
+      tempMetlId: 14
+    End Failure - Cloud storage URL not within external stage:
+      position:
+        x: 2080
+        "y": 260
+      tempMetlId: 15
+    Refresh External Tables:
+      position:
+        x: 1680
+        "y": -340
+      tempMetlId: 16
+    End Success:
+      position:
+        x: 1880
+        "y": -340
+      tempMetlId: 17
+    Read external table metadata:
+      position:
+        x: 1280
+        "y": -340
+      tempMetlId: 18
+    Check external table metadata:
+      position:
+        x: 1480
+        "y": -340
+      tempMetlId: 19
+    End Failure - Invalid metadata for external table:
+      position:
+        x: 1680
+        "y": -200
+      tempMetlId: 20
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -250
+      size:
+        height: 608
+        width: 1000
+      theme: "light-yellow"
+      content: |-
+        **Create or Refresh external table**
+
+        If required, create the external table over the Snowflake stage containing the files output by the CDC pipeline.  The table will be created with partition columns to enable efficient querying for new data.
+
+        If the external table already exists, it will be refreshed to contain any new files.
+    "2":
+      position:
+        x: 1200
+        "y": -80
+      size:
+        height: 318
+        width: 800
+      theme: "light-yellow"
+      content: |-
+        **Check for relative path**
+
+        Validate the *cloud_storage_url*
+
+        Query information_schema to get external stage_url
+
+        Compare to the *cloud_storage_url* to the *stage_url* determine whether the external table needs a *relative_path*.
+    "3":
+      position:
+        x: 2080
+        "y": -80
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: "**Create external table**"
+    "4":
+      position:
+        x: 1200
+        "y": -540
+      size:
+        height: 318
+        width: 600
+      theme: "light-yellow"
+      content: |-
+        **Refresh existing external table**
+
+        Check the external table has the expected metadata for v3.0.0 of this pipeline.
+        If so, refresh to pickup new files.

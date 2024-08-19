@@ -1,0 +1,106 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Filter table list for current schema"
+      parameters:
+        componentName: "Start"
+    Filter table list for current schema:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Drop tables"
+      parameters:
+        componentName: "Filter table list for current schema"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          cdc_tables = [[schema, table] for schema, table in cdc_tables if schema == cdc_schema]
+
+          print('cdc_tables:')
+          for row in cdc_tables:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('cdc_tables', cdc_tables)
+        scriptTimeout: "360"
+    Drop tables:
+      type: "delete-tables"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Drop tables"
+        database: "${target_database}"
+        schema: "${cdc_schema}"
+        targetTable:
+          fromGrid:
+            variable: "cdc_tables"
+            columns:
+            - "table"
+        ignoreMissing: "Yes"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+  variables:
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    cdc_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    cdc_tables:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          schema:
+            columnType: "TEXT"
+          table:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Filter table list for current schema:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    Drop tables:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 3
+    End Success:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 4
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -200
+      size:
+        height: 318
+        width: 400
+      theme: "light-yellow"
+      content: "**Drop CDC tables from current schema**"

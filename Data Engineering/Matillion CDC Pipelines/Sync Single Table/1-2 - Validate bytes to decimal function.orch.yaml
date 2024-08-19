@@ -1,0 +1,365 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "bytes_to_decimal_function parameter supplied?"
+      parameters:
+        componentName: "Start"
+    bytes_to_decimal_function parameter supplied?:
+      type: "if"
+      transitions:
+        "true":
+        - "Build check_udf_sql"
+        "false":
+        - "End Success - No bytes_to_decimal_function parameter supplied"
+      parameters:
+        componentName: "bytes_to_decimal_function parameter supplied?"
+        mode: "Simple"
+        condition:
+        - - "bytes_to_decimal_function"
+          - "Not"
+          - "Blank"
+          - ""
+        combineConditions: "And"
+    Build check_udf_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Lookup user defined function"
+      parameters:
+        componentName: "Build check_udf_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "check_udf_sql = \\\nf\"\"\"SELECT \n    \"FUNCTION_NAME\",\n\
+          \    \"ARGUMENT_SIGNATURE\",\n    \"DATA_TYPE\"\nFROM \n    \"{function_database}\"\
+          .\"INFORMATION_SCHEMA\".\"FUNCTIONS\"\nWHERE\n    \"FUNCTION_CATALOG\" =\
+          \ '{function_database}'\n    AND \"FUNCTION_SCHEMA\" = '{function_schema}'\n\
+          \    AND \"FUNCTION_NAME\" = '{function_name}'\"\"\"\n\nprint(f'check_udf_sql:\
+          \ \\n{check_udf_sql}')\ncontext.updateVariable('check_udf_sql', check_udf_sql)\n"
+        scriptTimeout: "360"
+    Lookup user defined function:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Validate user defined function"
+      parameters:
+        componentName: "Lookup user defined function"
+        mode: "Advanced"
+        query: "${check_udf_sql}"
+        gridVariable: "user_defined_functions"
+        gridVariableMapping:
+        - - "FUNCTION_NAME"
+          - "function_name"
+        - - "ARGUMENT_SIGNATURE"
+          - "argument_signature"
+        - - "DATA_TYPE"
+          - "data_type"
+    Validate user defined function:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "User defined function found?"
+      parameters:
+        componentName: "Validate user defined function"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "from collections import namedtuple\nfrom decimal import Decimal\n\
+          from pprint import pprint\n\n\nUserDefinedFunction = namedtuple('UserDefinedFunction',\
+          \ 'name argument_signature return_type')\nfunction_found = Decimal(0)\n\n\
+          print('user_defined_functions:')\npprint(user_defined_functions, width=200)\n\
+          print()\n\nif not user_defined_functions:\n    print(f'Unable to find any\
+          \ user defined functions named {bytes_to_decimal_function}')\n    return\n\
+          \nfor user_defined_function in user_defined_functions:\n    udf = UserDefinedFunction(*user_defined_function)\n\
+          \    \n    if (\n        udf.argument_signature == '(HEXSTRING VARCHAR,\
+          \ SCALE NUMBER, PRECISION NUMBER)' \n        and udf.return_type == 'VARCHAR(16777216)'\n\
+          \    ):\n\n        print(\n            f'Found user defined function named\
+          \ {bytes_to_decimal_function} '\n             \"with required signature\
+          \ '(HEXSTRING VARCHAR, SCALE NUMBER, PRECISION NUMBER)' and return type\
+          \ 'VARCHAR(16777216)'.\"\n        )\n        print()\n        \n       \
+          \ function_found = Decimal(1)\n        print(f'function_found: {function_found}')\n\
+          \        context.updateVariable('function_found', function_found)\n    \
+          \    \n        break\n\nelse:\n    print(\n        f'Unable to find user\
+          \ defined function named {bytes_to_decimal_function} '\n         \"with\
+          \ required signature '(HEXSTRING VARCHAR, SCALE NUMBER, PRECISION NUMBER)'\
+          \ and return type 'VARCHAR'.\"\n    )\n"
+        scriptTimeout: "360"
+    User defined function found?:
+      type: "if"
+      transitions:
+        "true":
+        - "Join paths"
+        "false":
+        - "Create user defined function"
+      parameters:
+        componentName: "User defined function found?"
+        mode: "Simple"
+        condition:
+        - - "function_found"
+          - "Is"
+          - "Greater than"
+          - "0"
+        combineConditions: "And"
+    Build create_function_sql:
+      type: "python-pushdown"
+      parameters:
+        componentName: "Build create_function_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          create_function_sql = \
+          f"""CREATE OR REPLACE FUNCTION {bytes_to_decimal_function}(HEXSTRING VARCHAR, SCALE NUMBER, PRECISION NUMBER)
+          RETURNS VARCHAR
+          LANGUAGE PYTHON
+          RUNTIME_VERSION = '3.8'
+          HANDLER = 'bytes_to_decimal_py'
+          as
+          $$
+          def bytes_to_decimal_py(hexstring, scale, precision):
+              from decimal import Decimal, localcontext
+
+              if hexstring is None or scale is None:
+                  return
+
+              int_value = int.from_bytes(
+                  bytes.fromhex(hexstring),
+                  byteorder='big',
+                  signed=True,
+              )
+
+              if precision is None:
+                  precision = len("%i" % int_value)
+
+              with localcontext() as ctx:
+                  ctx.prec = precision
+                  return str(int_value * (Decimal(10) ** -scale))
+          $$;"""
+
+          print(f'create_function_sql: \n{create_function_sql}')
+          context.updateVariable('create_function_sql', create_function_sql)
+        scriptTimeout: "360"
+    Create user defined function:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Join paths"
+        failure:
+        - "End Failure - Unable to create user defined function"
+      parameters:
+        componentName: "Create user defined function"
+        sqlScript: |-
+          CREATE OR REPLACE FUNCTION ${bytes_to_decimal_function}(HEXSTRING VARCHAR, SCALE NUMBER, PRECISION NUMBER)
+          RETURNS VARCHAR
+          LANGUAGE PYTHON
+          RUNTIME_VERSION = '3.8'
+          HANDLER = 'bytes_to_decimal_py'
+          as
+          $$
+          def bytes_to_decimal_py(hexstring, scale, precision):
+              from decimal import Decimal, localcontext
+
+              if hexstring is None or scale is None:
+                  return
+
+              int_value = int.from_bytes(
+                  bytes.fromhex(hexstring),
+                  byteorder='big',
+                  signed=True,
+              )
+
+              if precision is None:
+                  precision = len("%i" % int_value)
+
+              with localcontext() as ctx:
+                  ctx.prec = precision
+                  return str(int_value * (Decimal(10) ** -scale))
+          $$
+    Join paths:
+      type: "or"
+      transitions:
+        unconditional:
+        - "End Success"
+      parameters:
+        componentName: "Join paths"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    End Failure - Unable to create user defined function:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Unable to create user defined function"
+    End Success - No bytes_to_decimal_function parameter supplied:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - No bytes_to_decimal_function parameter supplied"
+  variables:
+    error_message:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    function_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    create_function_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    bytes_to_decimal_function:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    check_udf_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    function_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    function_found:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0"
+    function_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    user_defined_functions:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          function_name:
+            columnType: "TEXT"
+          argument_signature:
+            columnType: "TEXT"
+          data_type:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    bytes_to_decimal_function parameter supplied?:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    Build check_udf_sql:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 3
+    Lookup user defined function:
+      position:
+        x: 600
+        "y": 0
+      tempMetlId: 4
+    Validate user defined function:
+      position:
+        x: 800
+        "y": 0
+      tempMetlId: 5
+    User defined function found?:
+      position:
+        x: 1080
+        "y": 0
+      tempMetlId: 6
+    Build create_function_sql:
+      position:
+        x: 1280
+        "y": 120
+      tempMetlId: 8
+    Create user defined function:
+      position:
+        x: 1480
+        "y": 120
+      tempMetlId: 9
+    Join paths:
+      position:
+        x: 1680
+        "y": 0
+      tempMetlId: 10
+    End Success:
+      position:
+        x: 1880
+        "y": 0
+      tempMetlId: 11
+    End Failure - Unable to create user defined function:
+      position:
+        x: 1680
+        "y": 260
+      tempMetlId: 12
+    End Success - No bytes_to_decimal_function parameter supplied:
+      position:
+        x: 400
+        "y": 140
+      tempMetlId: 13
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -200
+      size:
+        height: 318
+        width: 800
+      theme: "light-yellow"
+      content: |-
+        **Check if UDF already exists**
+
+        If a UDF is found with the given name, check that its signature has the correct number of arguments and the correct types.
+    "2":
+      position:
+        x: 1000
+        "y": -200
+      size:
+        height: 438
+        width: 800
+      theme: "light-yellow"
+      content: "**If UDF not found, try to create it**"
+    "3":
+      position:
+        x: 1200
+        "y": 240
+      size:
+        height: 158
+        width: 200
+      theme: "red"
+      content: |-
+        Bug [DPCT-450](https://matillion.atlassian.net/browse/DPCT-450) prevents Python Pushdown scripts containing $$.
+
+        Until this is resolved, the UDF is defined directly in the SQL Script.

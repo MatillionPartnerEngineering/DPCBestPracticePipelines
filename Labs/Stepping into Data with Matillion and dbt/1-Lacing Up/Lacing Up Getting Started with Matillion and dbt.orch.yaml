@@ -1,0 +1,65 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "dbt debug"
+      parameters:
+        componentName: "Start"
+    dbt debug:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "dbt run"
+      parameters:
+        componentName: "dbt debug"
+        command: "dbt debug"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "kg"
+        gitFolderPath:
+        userName: "cnvertbleweathr"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    dbt run:
+      type: "commands-for-dbt-core"
+      parameters:
+        componentName: "dbt run"
+        command: "dbt run"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "kg"
+        gitFolderPath:
+        userName: "cnvertbleweathr"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+design:
+  components:
+    Start:
+      position:
+        x: -140
+        "y": 0
+      tempMetlId: 1
+    dbt debug:
+      position:
+        x: 40
+        "y": 0
+      tempMetlId: 4
+    dbt run:
+      position:
+        x: 220
+        "y": 0
+      tempMetlId: 5

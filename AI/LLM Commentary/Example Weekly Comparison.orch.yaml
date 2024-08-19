@@ -1,0 +1,132 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Run Load Data"
+      parameters:
+        componentName: "Start"
+    Run Load Data:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Prep Data"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "Run Load Data"
+        orchestrationJob: "AI/LLM Commentary/Load Data"
+        setScalarVariables:
+        setGridVariables:
+    Run Prep Data:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Compare this week to last"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "Run Prep Data"
+        transformationJob: "AI/LLM Commentary/Prep Data"
+        setScalarVariables:
+        setGridVariables:
+    Compare this week to last:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Run Send Summary"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "Compare this week to last"
+        orchestrationJob: "AI/LLM Commentary/Prepare Summary - two weeks"
+        setScalarVariables:
+        setGridVariables:
+    Run Send Summary:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "End Success"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "Run Send Summary"
+        orchestrationJob: "AI/LLM Commentary/Send Summary"
+        setScalarVariables:
+        setGridVariables:
+    End Failure:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    Or:
+      type: "or"
+      transitions:
+        unconditional:
+        - "SNS Message"
+      parameters:
+        componentName: "Or"
+    SNS Message:
+      type: "sns-message"
+      transitions:
+        unconditional:
+        - "End Failure"
+      parameters:
+        componentName: "SNS Message"
+        awsRegion: "us-east-1"
+        topicName: "BI-Insights"
+        subject: "AWS Notification Message"
+        message: "BI Insights workflow failed "
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Run Load Data:
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+    Run Prep Data:
+      position:
+        x: 360
+        "y": 0
+      tempMetlId: 3
+    Compare this week to last:
+      position:
+        x: 520
+        "y": 0
+      tempMetlId: 4
+    Run Send Summary:
+      position:
+        x: 670
+        "y": 0
+      tempMetlId: 5
+    End Failure:
+      position:
+        x: 1260
+        "y": 160
+      tempMetlId: 6
+    End Success:
+      position:
+        x: 830
+        "y": 0
+      tempMetlId: 7
+    Or:
+      position:
+        x: 840
+        "y": 160
+      tempMetlId: 8
+    SNS Message:
+      position:
+        x: 1060
+        "y": 160
+      tempMetlId: 9

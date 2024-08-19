@@ -1,0 +1,22 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    JW_Questions_Answered:
+      type: "table-input"
+      parameters:
+        componentName: "JW_Questions_Answered"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Questions_Answered"
+        columnNames:
+        - "Id"
+        - "DATA"
+        timeOffset:
+design:
+  components:
+    JW_Questions_Answered:
+      position:
+        x: -300
+        "y": 0
+      tempMetlId: 1

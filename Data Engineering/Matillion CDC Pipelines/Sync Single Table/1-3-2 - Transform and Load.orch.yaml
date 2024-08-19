@@ -1,0 +1,821 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Build calculated_columns"
+      parameters:
+        componentName: "Start"
+    Build calculated_columns:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Transformation is Change Log?"
+      parameters:
+        componentName: "Build calculated_columns"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "import datetime as dt\n\n\ndef qualified_name(column_name,\
+          \ property_name = None):\n    \"\"\"Return a fully qualifed column name\
+          \ with an optional property name.\"\"\"\n    if property_name:\n       \
+          \ return f'\"{column_name}\":\"{property_name}\"'\n    else:\n        return\
+          \ f'\"{column_name}\"'\n      \n\n# Append all the nested columns to calculated_columns\n\
+          calculated_columns = []\nfor prop, alias, format_string, *_ in nested_metadata:\n\
+          \    column = qualified_name('MTLN_CDC_EXT_PAYLOAD', prop)\n    if format_string:\n\
+          \        column = format_string.format(col=column)\n    calculated_columns.append([column,\
+          \ alias])\n\n# In MySQL, we construct the sequence number from the bin file,\
+          \ row and pos fields\nif connector == 'mysql':\n    sequence_number_calc\
+          \ = (\n        'CONCAT_WS('\n            \"':', \"\n            f\"TO_CHAR(SPLIT_PART({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'file')}, '.', -1)::NUMBER(38, 0), '0000000x'), \"\n            f\"TO_CHAR({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'pos')}::NUMBER(38, 0), '000000000000000x'), \"\n            f\"TO_CHAR({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'row')}::NUMBER(38, 0), '0000000x')\"\n        ')'\n    )\n    \n# In\
+          \ SQL Server, the change_lsn is null for the initial snapshot, so coalesce\
+          \ with commit_lsn\nelif connector == 'sqlserver':\n    sequence_number_calc\
+          \ = (\n        'COALESCE('\n            f'{qualified_name(\"MTLN_CDC_EXT_METADATA\"\
+          , \"change_lsn\")}::VARCHAR(16777216), '\n            f'{qualified_name(\"\
+          MTLN_CDC_EXT_METADATA\", \"commit_lsn\")}::VARCHAR(16777216)'\n        ')'\n\
+          \    )\n    \n# In Oracle, we need to sort by rs_id then ssn\nelif connector\
+          \ == 'oracle':\n    sequence_number_calc = (\n        'CONCAT_WS('\n   \
+          \         \"'.', \"\n            f\"COALESCE({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'rs_id')}::VARCHAR, '0x000000.00000000.0000'), \"\n            f\"TO_CHAR(COALESCE({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'ssn')}::NUMBER(38, 0), 0), '000000000000000x') \"\n        ')'\n    )\n\
+          \n# In Postgres, check which column we are using for the sequence number\n\
+          elif connector == 'postgresql' and commit_id_name == 'sequence':\n    sequence_number_calc\
+          \ = (\n        'CONCAT_WS('\n            \"':', \"\n            f\"TO_CHAR(COALESCE(PARSE_JSON({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'sequence')})[0]::NUMBER(38, 0), 0), '000000000000000x'), \"\n       \
+          \     f\"TO_CHAR(COALESCE(PARSE_JSON({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'sequence')})[1]::NUMBER(38, 0), 0), '000000000000000x') \"\n        ')'\n\
+          \    )\n\nelse:\n    sequence_number_calc = qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ commit_id_name)\n\nutc_timestamp = dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d\
+          \ %H:%M:%S.%f%z')\n\n# Add all metadata columns\n# Note: any columns not\
+          \ required in the target table will be ignored by the write\n# component\
+          \ in the transformation job\ncalculated_columns.extend([\n    [qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'db'), 'MTLN_CDC_SRC_DATABASE'],\n    [qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'schema'), 'MTLN_CDC_SRC_SCHEMA'],\n    [qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'table'), 'MTLN_CDC_SRC_TABLE'],\n    [qualified_name('MTLN_CDC_EXT_VERSION'),\
+          \ 'MTLN_CDC_SRC_VERSION'],\n    [qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'op'), 'MTLN_CDC_LAST_CHANGE_TYPE'],\n    [f\"TO_TIMESTAMP_NTZ({qualified_name('MTLN_CDC_EXT_METADATA',\
+          \ 'source_ts_ms')}::NUMBER(38,0), 3)\", 'MTLN_CDC_LAST_COMMIT_TIMESTAMP'],\n\
+          \    [qualified_name('MTLN_CDC_EXT_DATE_HOUR'), 'MTLN_CDC_PROCESSED_DATE_HOUR'],\n\
+          \    [qualified_name('MTLN_CDC_EXT_FILENAME'), 'MTLN_CDC_FILENAME'],\n \
+          \   [qualified_name('MTLN_CDC_EXT_FILEPATH'), 'MTLN_CDC_FILEPATH'],\n  \
+          \  [sequence_number_calc, 'MTLN_CDC_SEQUENCE_NUMBER'],\n    [0, 'MTLN_CDC_LOAD_BATCH_ID'],\n\
+          \    [f\"'{utc_timestamp}'::TIMESTAMP_TZ\", 'MTLN_CDC_LOAD_TIMESTAMP'],\n\
+          ])\n\n# Add mtln_cdc_deleted flag for Copy Table With Soft Deletes transformations\n\
+          if transformation_type == 'copy table with soft deletes':\n    calculated_columns.append([qualified_name('MTLN_CDC_DELETED'),\
+          \ 'MTLN_CDC_DELETED'])\n\nprint('calculated_columns:')\nfor row in calculated_columns:\n\
+          \    print(\"\\t\".join(str(col) for col in row))\ncontext.updateGridVariable('calculated_columns',\
+          \ calculated_columns)\n\nprint()\nnested_select_list = ',\\n    '.join([f'{calc}\
+          \ AS \"{alias}\"' for calc, alias in calculated_columns])\nprint(f'nested_select_list:\
+          \ \\n{nested_select_list}')\ncontext.updateVariable('nested_select_list',\
+          \ nested_select_list)\n"
+        scriptTimeout: "360"
+    Transformation is Change Log?:
+      type: "if"
+      transitions:
+        "true":
+        - "Transform and append"
+        "false":
+        - "Build join_output grid var"
+      parameters:
+        componentName: "Transformation is Change Log?"
+        mode: "Simple"
+        condition:
+        - - "transformation_type"
+          - "Is"
+          - "Equal to"
+          - "change log"
+        combineConditions: "And"
+    Build join_output grid var:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Transformation is Copy Table?"
+      parameters:
+        componentName: "Build join_output grid var"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "# if we aren't adding full metadata, target_metadata may not\
+          \ contain MTLN_CDC_LAST_CHANGE_TYPE\n# we need this column in the join_output,\
+          \ so append it now\ntarget_columns = [column for column, *_ in target_metadata]\n\
+          if 'MTLN_CDC_LAST_CHANGE_TYPE' not in target_columns:\n    target_columns.append('MTLN_CDC_LAST_CHANGE_TYPE')\n\
+          \n# add target columns into join_output\njoin_output = [[f'SOURCE.{column}',\
+          \ column] for column in target_columns]\n\n# add one column from primary\
+          \ key in target table into join_output\n# Note: it doesn't matter which\
+          \ column as we be using this column to check for \n# null rows in target\
+          \ table after left join on full primary key\njoin_output.append([f'TARGET.{primary_key[0][0]}',\
+          \ 'MTLN_TARGET_KEY'])\n\n# add current sequence number from target table\n\
+          # Note: we will be using this column to compare against the stage table\
+          \ to\n# filter out old change events\njoin_output.append(['TARGET.MTLN_CDC_SEQUENCE_NUMBER',\
+          \ 'MTLN_TARGET_MTLN_CDC_SEQUENCE_NUMBER'])\n\nprint('join_output:')\nfor\
+          \ row in join_output:\n    print(\"\\t\".join(str(col) for col in row))\n\
+          context.updateGridVariable('join_output', join_output)\n"
+        scriptTimeout: "360"
+    Transformation is Copy Table?:
+      type: "if"
+      transitions:
+        "true":
+        - "Transform and load"
+        "false":
+        - "Build delete_mapping grid var"
+      parameters:
+        componentName: "Transformation is Copy Table?"
+        mode: "Simple"
+        condition:
+        - - "transformation_type"
+          - "Is"
+          - "Equal to"
+          - "copy table"
+        combineConditions: "And"
+    Transform and load:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "End Success - Changes applied"
+      parameters:
+        componentName: "Transform and load"
+        transformationJob: "Matillion CDC Pipelines/Sync Single Table/1-3-2-2 - Transform\
+          \ and load"
+        setScalarVariables:
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "source_version"
+          - "${source_version}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "stage_table"
+          - "${stage_table}"
+        - - "target_table"
+          - "${target_table}"
+        - - "min_date_hour"
+          - "${min_date_hour}"
+        - - "min_filename"
+          - "${min_filename}"
+        - - "join_expression"
+          - "${join_expression}"
+        - - "nested_select_list"
+          - "${nested_select_list}"
+        - - "stage_schema"
+          - "${stage_schema}"
+        setGridVariables:
+        - variable: "target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "target_metadata"
+              columns:
+              - "column_name"
+        - variable: "join_output"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "join_output"
+              columns:
+              - "input_column"
+              - "output_column"
+        - variable: "calculated_columns"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "calculated_columns"
+              columns:
+              - "calculation"
+              - "alias"
+        - variable: "primary_key"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key"
+              columns:
+              - "key_column"
+    End Success - Changes applied:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - Changes applied"
+    Transform and append:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "End Success - Changes appended"
+      parameters:
+        componentName: "Transform and append"
+        transformationJob: "Matillion CDC Pipelines/Sync Single Table/1-3-2-1 - Transform\
+          \ and append"
+        setScalarVariables:
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "source_version"
+          - "${source_version}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "stage_table"
+          - "${stage_table}"
+        - - "target_table"
+          - "${target_table}"
+        - - "min_date_hour"
+          - "${min_date_hour}"
+        - - "min_filename"
+          - "${min_filename}"
+        - - "nested_select_list"
+          - "${nested_select_list}"
+        - - "stage_schema"
+          - "${stage_schema}"
+        setGridVariables:
+        - variable: "target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "target_metadata"
+              columns:
+              - "column_name"
+    End Success - Changes appended:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - Changes appended"
+    Build delete_mapping grid var:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Transform and load without deletes"
+      parameters:
+        componentName: "Build delete_mapping grid var"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          if append_metadata.lower() in ('yes', 'y', 'true', 't', '1'):
+
+              delete_mapping = [
+                  ['MTLN_CDC_SRC_VERSION'],
+                  ['MTLN_CDC_LAST_CHANGE_TYPE'],
+                  ['MTLN_CDC_LAST_COMMIT_TIMESTAMP'],
+                  ['MTLN_CDC_PROCESSED_DATE_HOUR'],
+                  ['MTLN_CDC_FILENAME'],
+                  ['MTLN_CDC_FILEPATH'],
+                  ['MTLN_CDC_SEQUENCE_NUMBER'],
+                  ['MTLN_CDC_LOAD_BATCH_ID'],
+                  ['MTLN_CDC_LOAD_TIMESTAMP'],
+                  ['MTLN_CDC_DELETED'],
+              ]
+
+          else:
+
+              delete_mapping = [
+                  ['MTLN_CDC_SRC_VERSION'],
+                  ['MTLN_CDC_PROCESSED_DATE_HOUR'],
+                  ['MTLN_CDC_FILENAME'],
+                  ['MTLN_CDC_SEQUENCE_NUMBER'],
+                  ['MTLN_CDC_DELETED'],
+              ]
+
+          print('delete_mapping:')
+          for row in delete_mapping:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('delete_mapping', delete_mapping)
+        scriptTimeout: "360"
+    Transform and load without deletes:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Transform and load soft deletes"
+      parameters:
+        componentName: "Transform and load without deletes"
+        transformationJob: "Matillion CDC Pipelines/Sync Single Table/1-3-2-3 - Transform\
+          \ and load without deletes"
+        setScalarVariables:
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "source_version"
+          - "${source_version}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "stage_table"
+          - "${stage_table}"
+        - - "target_table"
+          - "${target_table}"
+        - - "min_date_hour"
+          - "${min_date_hour}"
+        - - "min_filename"
+          - "${min_filename}"
+        - - "join_expression"
+          - "${join_expression}"
+        - - "nested_select_list"
+          - "${nested_select_list}"
+        - - "stage_schema"
+          - "${stage_schema}"
+        setGridVariables:
+        - variable: "target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "target_metadata"
+              columns:
+              - "column_name"
+        - variable: "join_output"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "join_output"
+              columns:
+              - "input_column"
+              - "output_column"
+        - variable: "primary_key"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key"
+              columns:
+              - "key_column"
+    Transform and load soft deletes:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "End Success - Changes applied with soft deletes"
+      parameters:
+        componentName: "Transform and load soft deletes"
+        transformationJob: "Matillion CDC Pipelines/Sync Single Table/1-3-2-4 - Transform\
+          \ and load soft deletes"
+        setScalarVariables:
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "source_version"
+          - "${source_version}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "stage_table"
+          - "${stage_table}"
+        - - "target_table"
+          - "${target_table}"
+        - - "min_date_hour"
+          - "${min_date_hour}"
+        - - "min_filename"
+          - "${min_filename}"
+        - - "join_expression"
+          - "${join_expression}"
+        - - "nested_select_list"
+          - "${nested_select_list}"
+        - - "stage_schema"
+          - "${stage_schema}"
+        setGridVariables:
+        - variable: "target_metadata"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "target_metadata"
+              columns:
+              - "column_name"
+        - variable: "delete_mapping"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "delete_mapping"
+              columns:
+              - "column_name"
+        - variable: "join_output"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "join_output"
+              columns:
+              - "input_column"
+              - "output_column"
+        - variable: "primary_key"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key"
+              columns:
+              - "key_column"
+    End Success - Changes applied with soft deletes:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - Changes applied with soft deletes"
+  variables:
+    stage_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    append_metadata:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    transformation_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    nested_select_list:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    warehouse:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    min_filename:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_name:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_datatype:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_version:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    stage_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    connector:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    min_date_hour:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_scale:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_precision:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    join_expression:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    commit_id_database_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+          default_value:
+            columnType: "TEXT"
+          not_null:
+            columnType: "TEXT"
+          unique:
+            columnType: "TEXT"
+      defaultValue: []
+    nested_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          property:
+            columnType: "TEXT"
+          alias:
+            columnType: "TEXT"
+          format_string:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+          default_value:
+            columnType: "TEXT"
+          not_null:
+            columnType: "TEXT"
+          unique:
+            columnType: "TEXT"
+      defaultValue: []
+    delete_mapping:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          column_name:
+            columnType: "TEXT"
+      defaultValue: []
+    join_output:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          input_column:
+            columnType: "TEXT"
+          output_column:
+            columnType: "TEXT"
+      defaultValue: []
+    calculated_columns:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          calculation:
+            columnType: "TEXT"
+          alias:
+            columnType: "TEXT"
+      defaultValue: []
+    primary_key:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          key_column:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Build calculated_columns:
+      position:
+        x: 240
+        "y": 0
+      tempMetlId: 2
+    Transformation is Change Log?:
+      position:
+        x: 560
+        "y": 0
+      tempMetlId: 3
+    Build join_output grid var:
+      position:
+        x: 760
+        "y": 420
+      tempMetlId: 4
+    Transformation is Copy Table?:
+      position:
+        x: 1040
+        "y": 420
+      tempMetlId: 5
+    Transform and load:
+      position:
+        x: 1240
+        "y": 420
+      tempMetlId: 6
+    End Success - Changes applied:
+      position:
+        x: 1440
+        "y": 420
+      tempMetlId: 7
+    Transform and append:
+      position:
+        x: 760
+        "y": 0
+      tempMetlId: 8
+    End Success - Changes appended:
+      position:
+        x: 960
+        "y": 0
+      tempMetlId: 9
+    Build delete_mapping grid var:
+      position:
+        x: 1240
+        "y": 960
+      tempMetlId: 10
+    Transform and load without deletes:
+      position:
+        x: 1520
+        "y": 960
+      tempMetlId: 11
+    Transform and load soft deletes:
+      position:
+        x: 1720
+        "y": 960
+      tempMetlId: 13
+    End Success - Changes applied with soft deletes:
+      position:
+        x: 1920
+        "y": 960
+      tempMetlId: 14
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -220
+      size:
+        height: 338
+        width: 280
+      theme: "light-yellow"
+      content: |-
+        **Build calculated_columns**
+
+        In the transformation pipeline, we use a variable to configure a SQL component to
+        - Extract fields from `before` or `after` objects
+        - Add metadata columns into the transformation
+    "2":
+      position:
+        x: 480
+        "y": -220
+      size:
+        height: 338
+        width: 400
+      theme: "light-yellow"
+      content: |
+        **Transform and append change events**
+
+        Append latest change events to target table as change log
+    "3":
+      position:
+        x: 680
+        "y": 200
+      size:
+        height: 338
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Build join_output grid var for Copy Table**
+
+        In the transformation pipelines, we perform a left join onto the target table.  Specify the output columns with the __join_output__ grid variable.
+    "4":
+      position:
+        x: 960
+        "y": 200
+      size:
+        height: 338
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Transform and load without soft deletes**
+
+        Apply latest CDC data to target table, deleting records which have been deleted from source
+    "5":
+      position:
+        x: 1160
+        "y": 620
+      size:
+        height: 458
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Build delete_mapping**
+
+        For soft deletes, a __delete_mapping__ grid variable is passed into the transformation pipeline.  This contains the columns which are to be updated when marking a record as deleted.
+    "6":
+      position:
+        x: 1440
+        "y": 620
+      size:
+        height: 458
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Transform and load with soft deletes**
+
+        Apply latest CDC data to target table, updating MTLN_CDC_DELETED where records have been deleted from source.
+
+        Note:  The payload for a delete event may not contain an __after__ object, and the __before__ object may only contain the primary key.  If the current batch of change events contains an insert or update for a source record, as well as a delete, we must process that insert or update first.  After processing the delete event, and marking the target record as deleted, the other columns in the target record should reflect the final value of the source record.

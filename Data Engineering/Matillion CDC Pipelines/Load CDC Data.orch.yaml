@@ -1,0 +1,139 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Sync All Tables - Template"
+      parameters:
+        componentName: "Start"
+    Sync All Tables - Template:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Sync All Tables - Template"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync All Tables/1\
+          \ - Iterate over tables"
+        setScalarVariables:
+        - - "cloud_storage_url"
+          - ""
+        - - "warehouse"
+          - ""
+        - - "target_database"
+          - ""
+        - - "target_schema"
+          - ""
+        - - "external_stage"
+          - ""
+        - - "external_table"
+          - ""
+        - - "concurrency"
+          - "Concurrent"
+        - - "use_source_schemas"
+          - "N"
+        - - "target_prefix"
+          - ""
+        - - "fully_qualify_target_table"
+          - "Y"
+        - - "transformation_type"
+          - "Copy Table"
+        - - "append_metadata"
+          - "Y"
+        - - "bytes_to_decimal_function"
+          - "BYTES_TO_DECIMAL"
+        - - "schema_drift_action"
+          - "Update Target"
+        setGridVariables:
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Sync All Tables - Template:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    End Success:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 3
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: "Run this orchestration pipeline to load the latest Avro files into\
+        \ Snowflake, for all tables in your CDC pipeline."
+    "2":
+      position:
+        x: 580
+        "y": -600
+      size:
+        height: 1198
+        width: 1400
+      theme: "light-green"
+      content: |+
+        ## Description of variable parameters for Sync All Tables
+
+        ***
+
+        The following variables can be set in the `Set Scalar Variables` parameter.
+
+        | Parameter | Description |
+        | --- | ----------- |
+        | `cloud_storage_url` | The url of the cloud storage location which the CDC pipeline is writing to.  This should have the format s3://<bucket>/<prefix>, azure://<storage_account>.blob.core.windows.net/<container>/<prefix> or gs://<bucket>/<prefix>|
+        | `warehouse` | The Snowflake virtual warehouse used to execute the SQL statements. |
+        | `target_database` | The Snowflake database where the external table and target tables will be created. |
+        | `target_schema` | The Snowflake schema where the external table will be created.  By default, the target tables will also be created in this schema.  See the parameter `use_source_schemas`. |
+        | `external_stage` | The name of an existing external stage which contains the files output by the CDC pipeline.  The URL of the external stage must contain the `cloud_storage_url`. |
+        | `external_table` | The external table which will be created to read the files output by the CDC pipeline.  |
+        | `concurrency` | Controls whether the files from the source tables are processed table-by-table, or all tables at once.  Options are `Concurrent` or `Sequential` |
+        | `use_source_schemas` | Optionally create the target tables in a schema with the same name as the schema containing the source table. If the schema doesn't already exist, the pipeline will try to create it.  Options are `Y` or `N`. |
+        | `target_prefix` | A prefix to add to the source table name to generate the target table name. If no prefix is specified, the target table will have the same name as the source table. |
+        | `fully_qualify_target_table` | Optionally includes the source database and schema in the target table name.  If `use_source_schemas = N`, it is recommended to set this to `Y`, unless you are confident that your source table names will always be unique.  Options are `Y` or `N`. |
+        | `transformation_type` | The type of transformation used when applying the change events to the target table. Options are `Copy Table`, `Copy Table with Soft Deletes`, or `Change Log`. |
+        | `append_metadata` | Whether to add all metadata columns to the target table, or just the minimum required for the selected `transformation_type`. Options are `Y` or `N`. |
+        | `bytes_to_decimal_function` | The name of a User Defined Function which will be created to convert VariableScaleDecimals back to a decimal representation.  If no function name is specified, any columns of type VariableScaleDecimal in the Avro files will be created as Variants in Snowflake.  |
+        | `schema_drift_action` | If the pipeline detects that there have been schema changes in the source table, and which are not compatible with the current target table, the target table can be altered to accept the new data.  Options are `Update Target` or `Fail Job`. |
+
+        ***
+
+        The following variables can be set in the `Set Grid Variables` parameter.
+
+        | Parameter | Description |
+        | --- | ----------- |
+        | `primary_key_override` | Optionally provide a list of primary key columns for the source tables.  By default, the job will read the primary key columns from the CDC Avro files. However, if the source table does not a have a primary defined in its DDL, a list of unique columns can be specified here to enable Copy Table transformations. Note: The values for the source_database, source_schema, source_table, and source_column are case sensitive, and must match the source database. |
+
+
+    "3":
+      position:
+        x: -80
+        "y": -600
+      size:
+        height: 318
+        width: 580
+      theme: "green"
+      content: |-
+        ## Instructions
+
+        The `Sync All Tables` pipeline can be run to load the data from all tables in a CDC pipeline into Snowflake.
+
+        1. Copy the `Sync All Tables - Template` Run Orchestration component below, and paste it into your own orchestration pipeline.
+        2. Edit the `Set Scalar Variables` and `Set Grid Variables` parameters, using the descriptions provided to the right as a guide.
+        3. You can now run or schedule your orchestration pipeline to keep Snowflake up to date with the latest CDC files.

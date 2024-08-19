@@ -1,0 +1,704 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Check all columns are in the target table"
+      parameters:
+        componentName: "Start"
+    Check all columns are in the target table:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "All columns found?"
+      parameters:
+        componentName: "Check all columns are in the target table"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          from dataclasses import dataclass
+
+
+          @dataclass
+          class Column:
+              name: str
+              data_type: str
+              size: int
+              precision: int
+              database_type: str
+
+              def __eq__(self, other) -> bool:
+                  return self.compare_values() == other.compare_values()
+
+              def compare_values(self) -> tuple:
+                  return (self.name, self.data_type, self.size, self.precision)
+
+              def to_list(self) -> list:
+                  return [self.name, self.data_type, self.size, self.precision, self.database_type]
+
+
+          existing_target_metadata = [Column(*col) for col in existing_target_metadata]
+          latest_target_metadata = [Column(*col) for col in latest_target_metadata]
+
+          unmatched_target_metadata = []
+
+          for column in latest_target_metadata:
+              if column not in existing_target_metadata:
+                  unmatched_target_metadata.append(column.to_list())
+
+          if not unmatched_target_metadata:
+              print('All columns found in target table.')
+              context.updateVariable('all_columns_found', 1)
+              return
+
+          print('unmatched_target_metadata:')
+          for row in unmatched_target_metadata:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('unmatched_target_metadata', unmatched_target_metadata)
+        scriptTimeout: "360"
+    All columns found?:
+      type: "if"
+      transitions:
+        "true":
+        - "Join paths"
+        "false":
+        - "Build strings"
+      parameters:
+        componentName: "All columns found?"
+        mode: "Simple"
+        condition:
+        - - "all_columns_found"
+          - "Is"
+          - "Equal to"
+          - "1"
+        combineConditions: "And"
+    Categorise unmatched columns:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Changes required to target table?"
+      parameters:
+        componentName: "Categorise unmatched columns"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "from dataclasses import dataclass\n\n\n@dataclass\nclass Column:\n\
+          \    name: str\n    data_type: str\n    size: int\n    precision: int\n\
+          \    database_type: str\n\n    def __post_init__(self):\n        self.data_type\
+          \ = self.data_type.lower()\n        self.size = int(self.size)\n       \
+          \ self.precision = int(self.precision)\n\n        # define which data types\
+          \ can be natively altered to increase size\n        self.native_alter_data_types\
+          \ = ['varchar', 'number']\n\n        # define compatible data types which\
+          \ can be safley inserted without explicit conversions or loss of data\n\
+          \        # format of dictionary: {existing_target_data_type: [latest_target_data_type]\
+          \ }\n        self.compatible_data_types = {\n            'timestamp': ['date'],\n\
+          \            'timestamp_ltz': ['date'],\n            'timestamp_ntz': ['date'],\n\
+          \            'timestamp_tz': ['date'],\n        }\n\n    def __repr__(self):\n\
+          \        return f'Column({self.name}, {self.data_type}, {self.size}, {self.precision},\
+          \ {self.database_type})'\n\n    def can_contain(self, other) -> bool:\n\
+          \        if self.data_type == 'number':\n            if (self.data_type\
+          \ == other.data_type and\n                (self.size - self.precision) >=\
+          \ (other.size - other.precision) and \n                self.precision >=\
+          \ other.precision):\n                return True\n        else:\n      \
+          \      if (self.data_type == other.data_type and\n                self.size\
+          \ >= other.size):\n                return True\n        return False\n \
+          \       \n    def is_compatible_with(self, other) -> bool:\n        if (self.data_type\
+          \ in self.compatible_data_types and\n            other.data_type in self.compatible_data_types[self.data_type]\
+          \ and\n            self.size >= other.size):\n            return True\n\
+          \        return False\n\n    def can_be_altered_to(self, other) -> bool:\n\
+          \        if (self.data_type == other.data_type and\n            self.data_type\
+          \ in self.native_alter_data_types and\n            self.size < other.size\
+          \  and\n            self.precision == other.precision):\n            return\
+          \ True\n        return False\n\n\n# get lists of unmatched columns from\
+          \ latest, and all columns in existing target\nunmatched_target_metadata\
+          \ = [Column(*col) for col in unmatched_target_metadata]\nprint('unmatched_target_metadata:')\n\
+          for col in unmatched_target_metadata:\n    print(col)\nprint()\n\nexisting_target_metadata\
+          \ = [Column(*col) for col in existing_target_metadata]\nprint('existing_target_metadata:')\n\
+          for col in existing_target_metadata:\n    print(col)\nprint()\n\nadd_columns\
+          \ = []\nnative_alter_columns = []\nrename_columns = []\ninfo_list = []\n\
+          warning_list = []\n\n# loop through unmatched target columns\nfor unmatched\
+          \ in unmatched_target_metadata:\n    \n    # get metadata for existing column\
+          \ in target\n    existing = next((c for c in existing_target_metadata if\
+          \ c.name == unmatched.name), None)\n\n    # if unmatched column not in target,\
+          \ then add it\n    if not existing:\n        \n        add_columns.append([unmatched.name,\
+          \ unmatched.database_type])\n        warning_list.append(f'Adding column\
+          \ {unmatched.name!r} with type {unmatched.database_type!r} to table {target_table!r}')\n\
+          \        continue\n\n    # if types are the same, but unmatched has smaller\
+          \ size and/or precision, then do nothing\n    if existing.can_contain(unmatched):\n\
+          \        \n        info_list.append(f'Column {unmatched.name!r} with latest\
+          \ type {unmatched.database_type!r} is smaller than existing target type\
+          \ {existing.database_type!r} - no action required')\n        continue\n\
+          \    \n    # if unmatched type can be safely inserted into existing type\
+          \ without loss of data, then do nothing\n    if existing.is_compatible_with(unmatched):\n\
+          \        \n        info_list.append(f'Column {unmatched.name!r} with latest\
+          \ type {unmatched.database_type!r} can be implicitly cast to existing target\
+          \ type {existing.database_type!r} - no action required')\n        continue\n\
+          \    \n    # if types are the same, unmatched size is larger, precision\
+          \ same or smaller and we can natively alter, then alter column\n    if existing.can_be_altered_to(unmatched):\n\
+          \n        native_alter_columns.append([unmatched.name, unmatched.database_type,\
+          \ existing.database_type])\n        warning_list.append(f'Altering column\
+          \ {unmatched.name!r} with type {existing.database_type!r} to {unmatched.database_type!r}\
+          \ in table {target_table!r}')\n        continue\n\n    # else rename existing\
+          \ column in target and add new column with stage data type\n    rename_columns.append([existing.name])\n\
+          \    add_columns.append([unmatched.name, unmatched.database_type])\n   \
+          \ warning_list.append(f'Renaming column {existing.name!r} with type {existing.database_type!r}\
+          \ to {existing.name + old_column_suffix!r} in table {target_table!r}')\n\
+          \    warning_list.append(f'Adding column {unmatched.name!r} with type {unmatched.database_type!r}\
+          \ to table {target_table!r}')\n\n# build strings to log\nif info_list:\n\
+          \    info_messages = '\\n'.join(info_list)\n    print('Info messages:')\n\
+          \    print(info_messages)\n    # context.updateVariable('info_messages',\
+          \ info_messages)\n    print()\n\nif warning_list:\n    warning_messages\
+          \ = '\\n'.join(warning_list)\n    print('Warning messages:')\n    print(warning_messages)\n\
+          \    context.updateVariable('warning_messages', warning_messages)\n    print()\n\
+          \n    schema_changes_required = 1\n    print(f'schema_changes_required:\
+          \ {schema_changes_required}')\n    context.updateVariable('schema_changes_required',\
+          \ schema_changes_required)\n    print()\n\n# update grid variables\nprint('add_columns:')\n\
+          for row in add_columns:\n    print(\"\\t\".join(str(col) for col in row))\n\
+          if add_columns:\n    context.updateGridVariable('add_columns', add_columns)\n\
+          print()\n\nprint('native_alter_columns:')\nfor row in native_alter_columns:\n\
+          \    print(\"\\t\".join(str(col) for col in row))\nif native_alter_columns:\n\
+          \    context.updateGridVariable('native_alter_columns', native_alter_columns)\n\
+          print()\n\nprint('rename_columns:')\nfor row in rename_columns:\n    print(\"\
+          \\t\".join(str(col) for col in row))\nif rename_columns:\n    context.updateGridVariable('rename_columns',\
+          \ rename_columns)\n"
+        scriptTimeout: "360"
+    Build rename statements:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build add statements"
+      parameters:
+        componentName: "Build rename statements"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          # if target column cannot be altered to stage data type, build SQL Statements to rename columns in target table
+          if not rename_columns:
+              print('No columns need renaming')
+              return
+
+          rename_statements = []
+
+          for col in rename_columns:
+              col_name = col[0]
+              rename_statements.append([f'ALTER TABLE {fully_qualified_target_table} RENAME COLUMN "{col_name}" TO "{col_name}{old_column_suffix}";'])
+
+          print('rename_statements:')
+          for row in rename_statements:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('rename_statements', rename_statements)
+        scriptTimeout: "360"
+    Build add statements:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build native alter statements"
+      parameters:
+        componentName: "Build add statements"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          # build sql statements for any columns to add to target table
+          if not add_columns:
+              print('No columns need adding')
+              return
+
+          add_statements = []
+
+          for col_name, db_type in add_columns:
+              add_statements.append([f'ALTER TABLE {fully_qualified_target_table} ADD COLUMN "{col_name}" {db_type};'])
+
+          print('add_statements:')
+          for row in add_statements:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('add_statements', add_statements)
+        scriptTimeout: "360"
+    Build native alter statements:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Build final SQL"
+      parameters:
+        componentName: "Build native alter statements"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          # build SQL statements to alter type natively, where supported
+          if not native_alter_columns:
+              print('No columns need altering')
+              return
+
+          native_alter_statements = []
+
+          for col_name, stg_db_type, tgt_db_type in native_alter_columns:
+              native_alter_statements.append([f'ALTER TABLE {fully_qualified_target_table} ALTER COLUMN "{col_name}" TYPE {stg_db_type};'])
+
+          print('native_alter_statements:')
+          for row in native_alter_statements:
+              print("\t".join(str(col) for col in row))
+          context.updateGridVariable('native_alter_statements', native_alter_statements)
+        scriptTimeout: "360"
+    Changes required to target table?:
+      type: "if"
+      transitions:
+        "true":
+        - "Schema drift action is update target?"
+        "false":
+        - "Join paths"
+      parameters:
+        componentName: "Changes required to target table?"
+        mode: "Simple"
+        condition:
+        - - "schema_changes_required"
+          - "Is"
+          - "Equal to"
+          - "1"
+        combineConditions: "And"
+    Schema drift action is update target?:
+      type: "if"
+      transitions:
+        "true":
+        - "Build rename statements"
+        "false":
+        - "End Failure - Target metadata not compatible with stage metadata"
+      parameters:
+        componentName: "Schema drift action is update target?"
+        mode: "Simple"
+        condition:
+        - - "schema_drift_action"
+          - "Is"
+          - "Equal to"
+          - "update target"
+        combineConditions: "And"
+    Build final SQL:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Alter target table"
+      parameters:
+        componentName: "Build final SQL"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: |
+          sql_statements = []
+
+          # append any rename statements
+          if rename_statements:
+              sql_statements.extend(rename_statements)
+
+          # append any add statements
+          if add_statements:
+              sql_statements.extend(add_statements)
+
+          # append any native alter statements
+          if native_alter_statements:
+              sql_statements.extend(native_alter_statements)
+
+          # change list of lists, to just a list
+          sql_statements = [c[0] for c in sql_statements]
+
+          # convert list of sql statements to single string
+          sql_to_execute = '\n'.join(sql_statements)
+          print('The following SQL needs to be executed against the target table')
+          print(sql_to_execute)
+          context.updateVariable('sql_to_execute', sql_to_execute)
+        scriptTimeout: "360"
+    Alter target table:
+      type: "sql-script"
+      transitions:
+        success:
+        - "Join paths"
+        failure:
+        - "End Failure - Unable to update target table"
+      parameters:
+        componentName: "Alter target table"
+        sqlScript: "${sql_to_execute}"
+    Join paths:
+      type: "or"
+      transitions:
+        unconditional:
+        - "End Success"
+      parameters:
+        componentName: "Join paths"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    End Failure - Target metadata not compatible with stage metadata:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Target metadata not compatible with stage metadata"
+    End Failure - Unable to update target table:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - Unable to update target table"
+    Build strings:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print strings"
+      parameters:
+        componentName: "Build strings"
+        scalarsToUpdate:
+        - - "old_column_suffix"
+          - "_${String(new Date().getFullYear())}${String(new Date().getMonth() +\
+            \ 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}${String(new\
+            \ Date().getHours()).padStart(2, '0')}${String(new Date().getMinutes()).padStart(2,\
+            \ '0')}${String(new Date().getSeconds()).padStart(2, '0')}"
+        - - "fully_qualified_target_table"
+          - "\"${target_database}\".\"${target_schema}\".\"${target_table}\""
+    Print strings:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Categorise unmatched columns"
+      parameters:
+        componentName: "Print strings"
+        variablesToPrint:
+        - - "old_column_suffix"
+        - - "fully_qualified_target_table"
+        prefixText:
+        includeVariableName: "Yes"
+  variables:
+    all_columns_found:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0"
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    sql_to_execute:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    schema_drift_action:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    warning_messages:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    old_column_suffix:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    fully_qualified_target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    info_messages:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    schema_changes_required:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "0"
+    existing_target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+      defaultValue: []
+    add_columns:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          name:
+            columnType: "TEXT"
+          database_type:
+            columnType: "TEXT"
+      defaultValue: []
+    unmatched_target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+      defaultValue: []
+    latest_target_metadata:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          column_name:
+            columnType: "TEXT"
+          type:
+            columnType: "TEXT"
+          size:
+            columnType: "NUMBER"
+          precision:
+            columnType: "NUMBER"
+          database_type:
+            columnType: "TEXT"
+      defaultValue: []
+    add_statements:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          statement:
+            columnType: "TEXT"
+      defaultValue: []
+    rename_statements:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          statement:
+            columnType: "TEXT"
+      defaultValue: []
+    native_alter_columns:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          name:
+            columnType: "TEXT"
+          latest_database_type:
+            columnType: "TEXT"
+          existing_database_type:
+            columnType: "TEXT"
+      defaultValue: []
+    rename_columns:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          name:
+            columnType: "TEXT"
+      defaultValue: []
+    native_alter_statements:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          statement:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Check all columns are in the target table:
+      position:
+        x: 180
+        "y": 0
+      tempMetlId: 2
+    All columns found?:
+      position:
+        x: 380
+        "y": 0
+      tempMetlId: 3
+    Categorise unmatched columns:
+      position:
+        x: 1060
+        "y": 300
+      tempMetlId: 5
+    Build rename statements:
+      position:
+        x: 1740
+        "y": 300
+      tempMetlId: 6
+    Build add statements:
+      position:
+        x: 1940
+        "y": 300
+      tempMetlId: 7
+    Build native alter statements:
+      position:
+        x: 2140
+        "y": 300
+      tempMetlId: 8
+    Changes required to target table?:
+      position:
+        x: 1260
+        "y": 300
+      tempMetlId: 9
+    Schema drift action is update target?:
+      position:
+        x: 1460
+        "y": 300
+      tempMetlId: 10
+    Build final SQL:
+      position:
+        x: 2340
+        "y": 300
+      tempMetlId: 11
+    Alter target table:
+      position:
+        x: 2540
+        "y": 300
+      tempMetlId: 12
+    Join paths:
+      position:
+        x: 2740
+        "y": 0
+      tempMetlId: 13
+    End Success:
+      position:
+        x: 2940
+        "y": 0
+      tempMetlId: 14
+    End Failure - Target metadata not compatible with stage metadata:
+      position:
+        x: 1660
+        "y": 440
+      tempMetlId: 15
+    End Failure - Unable to update target table:
+      position:
+        x: 2740
+        "y": 440
+      tempMetlId: 16
+    Build strings:
+      position:
+        x: 660
+        "y": 300
+      tempMetlId: 17
+    Print strings:
+      position:
+        x: 860
+        "y": 300
+      tempMetlId: 18
+  notes:
+    "1":
+      position:
+        x: 100
+        "y": -120
+      size:
+        height: 238
+        width: 400
+      theme: "light-yellow"
+      content: "**Check all columns in stage table are in target table**"
+    "2":
+      position:
+        x: 580
+        "y": 60
+      size:
+        height: 358
+        width: 1000
+      theme: "light-yellow"
+      content: |-
+        **Identify differences and build SQL statements if necessary**
+
+        Categorise unmatched columns into
+        - Compatible data types, no action required
+        - Incompatible data types which can be updated with native alter statement
+        - Incompatible data types which will be resolved by renaming old column and adding a new column
+        - New columns to add
+
+        For the first type, an info message will be printed.
+
+
+        For the last three types, a warning message will be printed, and SQL statements generated to alter the target table
+    "3":
+      position:
+        x: 1660
+        "y": 60
+      size:
+        height: 358
+        width: 1000
+      theme: "light-yellow"
+      content: |-
+        **Update target table**
+
+        * Build final SQL statement to alter table
+        * Execute if schema_drift_action = update table
+    "4":
+      position:
+        x: 980
+        "y": 420
+      size:
+        height: 178
+        width: 200
+      theme: "red"
+      content: |-
+        Bug [DPCT-414](https://matillion.atlassian.net/browse/DPCT-414) prevents Python Pushdown updating a grid variable to an empty list.
+
+        As a workaround, check lists aren't empty before updating grid variables.

@@ -1,0 +1,679 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Print version"
+      parameters:
+        componentName: "Start"
+    Print version:
+      type: "print-variables"
+      transitions:
+        success:
+        - "[Environment Default] passed as parameter?"
+      parameters:
+        componentName: "Print version"
+        variablesToPrint:
+        - - "pipeline_version"
+        prefixText:
+        includeVariableName: "Yes"
+    Build external table name:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print external table name"
+      parameters:
+        componentName: "Build external table name"
+        scalarsToUpdate:
+        - - "external_table"
+          - "${external_table.toUpperCase()}"
+    Print external table name:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Create or refresh external table"
+      parameters:
+        componentName: "Print external table name"
+        variablesToPrint:
+        - - "external_table"
+        prefixText:
+        includeVariableName: "Yes"
+    Create or refresh external table:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "Build list_tables_sql"
+      parameters:
+        componentName: "Create or refresh external table"
+        orchestrationJob: "Matillion CDC Pipelines/Create or Refresh External Table/1\
+          \ - Process"
+        setScalarVariables:
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "external_stage"
+          - "${external_stage}"
+        - - "external_table"
+          - "${external_table}"
+        - - "cloud_storage_url"
+          - "${cloud_storage_url}"
+        setGridVariables:
+    Iterate over table_list:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "End Success"
+      iterationTarget: "Sync single table"
+      parameters:
+        componentName: "Iterate over table_list"
+        gridVariable: "source_tables"
+        gridIteratorVariableMapping:
+        - - "source_database"
+          - "source_database"
+        - - "source_schema"
+          - "source_schema"
+        - - "source_table"
+          - "source_table"
+        concurrency: "${concurrency}"
+    Sync single table:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Sync single table"
+        orchestrationJob: "Data Engineering/Matillion CDC Pipelines/Sync Single Table/1\
+          \ - Orchestrate"
+        setScalarVariables:
+        - - "connector"
+          - "${connector}"
+        - - "source_database"
+          - "${source_database}"
+        - - "source_schema"
+          - "${source_schema}"
+        - - "source_table"
+          - "${source_table}"
+        - - "cloud_storage_url"
+          - "${cloud_storage_url}"
+        - - "warehouse"
+          - "${warehouse}"
+        - - "target_database"
+          - "${target_database}"
+        - - "target_schema"
+          - "${target_schema}"
+        - - "stage_table"
+          - "${external_table}"
+        - - "target_prefix"
+          - "${target_prefix}"
+        - - "fully_qualify_target_table"
+          - "${fully_qualify_target_table}"
+        - - "transformation_type"
+          - "${transformation_type}"
+        - - "append_metadata"
+          - "${append_metadata}"
+        - - "schema_drift_action"
+          - "${schema_drift_action}"
+        - - "bytes_to_decimal_function"
+          - "${bytes_to_decimal_function}"
+        - - "use_source_schemas"
+          - "${use_source_schemas}"
+        setGridVariables:
+        - variable: "primary_key_override"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "primary_key_override"
+              columns:
+              - "source_database"
+              - "source_schema"
+              - "source_table"
+              - "source_column"
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+    Get list of source tables in pipeline:
+      type: "query-to-grid"
+      transitions:
+        success:
+        - "Count source tables found"
+      parameters:
+        componentName: "Get list of source tables in pipeline"
+        mode: "Advanced"
+        query: "${list_tables_sql}"
+        gridVariable: "source_tables"
+        gridVariableMapping:
+        - - "DATABASE"
+          - "source_database"
+        - - "SCHEMA"
+          - "source_schema"
+        - - "TABLE"
+          - "source_table"
+    Source tables found?:
+      type: "if"
+      transitions:
+        "true":
+        - "Build get_connector_sql"
+        "false":
+        - "End Success - No source tables found in external table"
+      parameters:
+        componentName: "Source tables found?"
+        mode: "Simple"
+        condition:
+        - - "source_table_count"
+          - "Is"
+          - "Greater than or equal to"
+          - "1"
+        combineConditions: "And"
+    End Success - No source tables found in external table:
+      type: "end-success"
+      parameters:
+        componentName: "End Success - No source tables found in external table"
+    Build list_tables_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Get list of source tables in pipeline"
+      parameters:
+        componentName: "Build list_tables_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "list_tables_sql = \\\nf'''SELECT \n    SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -9), '=', -1) AS \"DATABASE\",\n    SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -8), '=', -1) AS \"SCHEMA\",\n    SPLIT_PART(SPLIT_PART(\"\
+          FILE_NAME\", '/',  -7), '=', -1) AS \"TABLE\"\nFROM \n    TABLE(\"{target_database}\"\
+          .\"INFORMATION_SCHEMA\".\"EXTERNAL_TABLE_FILES\"(table_name=>'\"{target_database}\"\
+          .\"{target_schema}\".\"{external_table}\"'))\nGROUP BY ALL\nORDER BY\n \
+          \   \"DATABASE\",\n    \"SCHEMA\",\n    \"TABLE\"'''\n\nprint(f'list_tables_sql:\
+          \ \\n{list_tables_sql}')\ncontext.updateVariable('list_tables_sql', list_tables_sql)\n"
+        scriptTimeout: "360"
+    Connector identified?:
+      type: "if"
+      transitions:
+        "true":
+        - "Iterate over table_list"
+        "false":
+        - "End Failure - No connector identified for pipeline"
+      parameters:
+        componentName: "Connector identified?"
+        mode: "Simple"
+        condition:
+        - - "connector"
+          - "Not"
+          - "Blank"
+          - ""
+        combineConditions: "And"
+    Build get_connector_sql:
+      type: "python-pushdown"
+      transitions:
+        success:
+        - "Get source connector from external table"
+      parameters:
+        componentName: "Build get_connector_sql"
+        externalAccessIntegrations:
+        packages:
+        pythonScript: "# read any single record from the stage table to find the connector\n\
+          get_connector_sql = \\\nf\"\"\"SELECT\n    coalesce(any_value(\"CONNECTOR\"\
+          ), '') AS \"CONNECTOR\"\nFROM (\n    SELECT \n        \"VALUE\":\"metadata\"\
+          .\"connector\"::VARCHAR AS \"CONNECTOR\"\n    FROM\n        \"{target_database}\"\
+          .\"{target_schema}\".\"{external_table}\"\n    LIMIT 1\n)\"\"\"\n\nprint(f'get_connector_sql:\
+          \ \\n{get_connector_sql}')\ncontext.updateVariable('get_connector_sql',\
+          \ get_connector_sql)\n"
+        scriptTimeout: "360"
+    Get source connector from external table:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Print connector"
+      parameters:
+        componentName: "Get source connector from external table"
+        mode: "Advanced"
+        query: "${get_connector_sql}"
+        scalarVariableMapping:
+        - - "connector"
+          - "CONNECTOR"
+    Print connector:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Connector identified?"
+      parameters:
+        componentName: "Print connector"
+        variablesToPrint:
+        - - "connector"
+        prefixText:
+        includeVariableName: "Yes"
+    End Failure - No connector identified for pipeline:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - No connector identified for pipeline"
+    End Failure - [Environment Default] not supported as parameter:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure - [Environment Default] not supported as parameter"
+    '[Environment Default] passed as parameter?':
+      type: "if"
+      transitions:
+        "true":
+        - "End Failure - [Environment Default] not supported as parameter"
+        "false":
+        - "Build external table name"
+      parameters:
+        componentName: "[Environment Default] passed as parameter?"
+        mode: "Advanced"
+        condition1: "target_database.toLowerCase() == \"[environment default]\" ||\
+          \ target_schema.toLowerCase() == \"[environment default]\""
+    Count source tables found:
+      type: "update-scalar"
+      transitions:
+        success:
+        - "Print source table count"
+      parameters:
+        componentName: "Count source tables found"
+        scalarsToUpdate:
+        - - "source_table_count"
+          - "${source_tables.source_table.length}"
+    Print source table count:
+      type: "print-variables"
+      transitions:
+        success:
+        - "Source tables found?"
+      parameters:
+        componentName: "Print source table count"
+        variablesToPrint:
+        - - "source_table_count"
+        prefixText:
+        includeVariableName: "Yes"
+  variables:
+    pipeline_version:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: "4.0.0"
+    fully_qualify_target_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    target_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    cloud_storage_url:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    append_metadata:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Y"
+    transformation_type:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Copy Table"
+    source_table_count:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    warehouse:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    concurrency:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Sequential"
+    use_source_schemas:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "N"
+    target_database:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    external_stage:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    list_tables_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    connector:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    bytes_to_decimal_function:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "BYTES_TO_DECIMAL"
+    schema_drift_action:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: "Update Target"
+    external_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    get_connector_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_table:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    source_schema:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+      defaultValue: ""
+    target_prefix:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    source_tables:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PRIVATE"
+        columns:
+          source_database:
+            columnType: "TEXT"
+          source_schema:
+            columnType: "TEXT"
+          source_table:
+            columnType: "TEXT"
+      defaultValue: []
+    primary_key_override:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          source_database:
+            columnType: "TEXT"
+          source_schema:
+            columnType: "TEXT"
+          source_table:
+            columnType: "TEXT"
+          source_column:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: 0
+        "y": 0
+      tempMetlId: 1
+    Print version:
+      position:
+        x: 200
+        "y": 0
+      tempMetlId: 2
+    Build external table name:
+      position:
+        x: 760
+        "y": 0
+      tempMetlId: 3
+    Print external table name:
+      position:
+        x: 960
+        "y": 0
+      tempMetlId: 4
+    Create or refresh external table:
+      position:
+        x: 1240
+        "y": 0
+      tempMetlId: 5
+    Iterate over table_list:
+      position:
+        x: 3500
+        "y": -10
+      tempMetlId: 8
+    Sync single table:
+      position:
+        x: 3500
+        "y": -10
+      tempMetlId: 9
+    End Success:
+      position:
+        x: 3700
+        "y": 0
+      tempMetlId: 12
+    Get list of source tables in pipeline:
+      position:
+        x: 1720
+        "y": 0
+      tempMetlId: 14
+    Source tables found?:
+      position:
+        x: 2320
+        "y": 0
+      tempMetlId: 16
+    End Success - No source tables found in external table:
+      position:
+        x: 2520
+        "y": 140
+      tempMetlId: 17
+    Build list_tables_sql:
+      position:
+        x: 1520
+        "y": 0
+      tempMetlId: 18
+    Connector identified?:
+      position:
+        x: 3220
+        "y": 0
+      tempMetlId: 22
+    Build get_connector_sql:
+      position:
+        x: 2600
+        "y": 0
+      tempMetlId: 24
+    Get source connector from external table:
+      position:
+        x: 2800
+        "y": 0
+      tempMetlId: 28
+    Print connector:
+      position:
+        x: 3000
+        "y": 0
+      tempMetlId: 29
+    End Failure - No connector identified for pipeline:
+      position:
+        x: 3420
+        "y": 140
+      tempMetlId: 30
+    End Failure - [Environment Default] not supported as parameter:
+      position:
+        x: 680
+        "y": 140
+      tempMetlId: 31
+    '[Environment Default] passed as parameter?':
+      position:
+        x: 480
+        "y": 0
+      tempMetlId: 32
+    Count source tables found:
+      position:
+        x: 1920
+        "y": 0
+      tempMetlId: 33
+    Print source table count:
+      position:
+        x: 2120
+        "y": 0
+      tempMetlId: 34
+  notes:
+    "1":
+      position:
+        x: 120
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Print version**
+
+        Print pipeline version to the task history, to help support cases
+    "2":
+      position:
+        x: -940
+        "y": -200
+      size:
+        height: 318
+        width: 860
+      theme: "light-green"
+      content: |-
+        **Change log**
+
+        4.0.0 -----------------------------------------------------------------------------------------------------------
+        - General availability
+    "3":
+      position:
+        x: 680
+        "y": -200
+      size:
+        height: 318
+        width: 400
+      theme: "light-yellow"
+      content: |-
+        **Build table names**
+
+        Ensure external table name is upper case.
+    "4":
+      position:
+        x: 1160
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Create or refresh external table**
+
+        Create external table, if it doesn't exist.
+
+        Otherwise, refresh the external table with the latest files.
+    "5":
+      position:
+        x: 1440
+        "y": -200
+      size:
+        height: 318
+        width: 1000
+      theme: "light-yellow"
+      content: |-
+        **Get list of source tables**
+
+        Query the EXTERNAL_TABLE_FILES function to obtain a list of all source tables in this CDC pipeline
+    "7":
+      position:
+        x: 3420
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Load new data**
+
+        Iterate over source table list, loading new data
+    "8":
+      position:
+        x: 400
+        "y": -200
+      size:
+        height: 318
+        width: 200
+      theme: "light-yellow"
+      content: |-
+        **Check for [Environment Default] values**
+
+        [Environment Default] is not currently supported as we cannot use it to build SQL statements
+    "9":
+      position:
+        x: 2520
+        "y": -200
+      size:
+        height: 318
+        width: 820
+      theme: "light-yellow"
+      content: |-
+        **Check source connector**
+
+        Query the external table to retrieve the connector from any single change event

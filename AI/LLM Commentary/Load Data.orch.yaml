@@ -1,0 +1,117 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Films 21-23 June"
+        - "Films 28-30 June"
+      parameters:
+        componentName: "Start"
+    Films 21-23 June:
+      type: "google-sheets-query"
+      parameters:
+        componentName: "Films 21-23 June"
+        basicAdvancedMode: "Basic"
+        authentication: "Julian-g-sheet"
+        spreadsheetName: "Films v2"
+        containsHeaderRow: "No"
+        cellRange: ""
+        connectionOptions:
+        dataSource: "Films v2_Weekend Box Office 21-23 June"
+        dataSelection:
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+        - "H"
+        - "I"
+        - "id"
+        - "J"
+        - "K"
+        - "L"
+        - "M"
+        - "N"
+        - "O"
+        - "P"
+        - "Q"
+        - "R"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: "100"
+        type: "Standard"
+        primaryKeys:
+        warehouse1: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Films_Data_week1"
+        stage1: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+    Films 28-30 June:
+      type: "google-sheets-query"
+      parameters:
+        componentName: "Films 28-30 June"
+        basicAdvancedMode: "Basic"
+        authentication: "Julian-g-sheet"
+        spreadsheetName: "Films v2"
+        containsHeaderRow: "No"
+        cellRange: ""
+        connectionOptions:
+        dataSource: "Films v2_Weekend Box Office 28 - 30 June"
+        dataSelection:
+        - "A"
+        - "B"
+        - "C"
+        - "D"
+        - "E"
+        - "F"
+        - "G"
+        - "H"
+        - "I"
+        - "id"
+        - "J"
+        - "K"
+        - "L"
+        - "M"
+        - "N"
+        - "O"
+        - "P"
+        - "Q"
+        - "R"
+        dataSourceFilter:
+        combineFilters: "And"
+        limit: "100"
+        type: "Standard"
+        primaryKeys:
+        warehouse1: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "JW_Films_Data_week2"
+        stage1: "[Custom]"
+        stagePlatform: "Snowflake Managed"
+        loadOptions:
+        autoDebug: "Off"
+design:
+  components:
+    Start:
+      position:
+        x: -50
+        "y": 20
+      tempMetlId: 1
+    Films 21-23 June:
+      position:
+        x: 170
+        "y": -30
+      tempMetlId: 3
+    Films 28-30 June:
+      position:
+        x: 170
+        "y": 100
+      tempMetlId: 4
