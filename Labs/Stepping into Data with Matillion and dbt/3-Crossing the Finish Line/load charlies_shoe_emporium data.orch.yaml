@@ -6,27 +6,23 @@ pipeline:
       type: "start"
       transitions:
         unconditional:
-        - "Create Table charlies_shoe_emporium_shoe_specifications"
-        - "Create Table charlies_shoe_emporium_store_locations"
-        - "Create Table charlies_shoe_emporium_sales"
+        - "Grid Iterator"
+        - "Grid Iterator 3"
       parameters:
         componentName: "Start"
     S3 Load charlies_shoe_emporium_sales:
       type: "s3-load"
-      transitions:
-        success:
-        - "And"
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_sales"
         stage: "[Custom]"
         authentication: "Credentials"
         s3ObjectPrefix: "s3://mtln-techworkshops/"
-        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_sales_FL.csv"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_sales_${pv_state}.csv"
         encryption: "None"
         warehouse: "[Environment Default]"
         database: "[Environment Default]"
         schema: "[Environment Default]"
-        targetTable: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_FL"
+        targetTable: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_${pv_state}"
         loadColumns:
         format: "[Custom]"
         fileType: "CSV"
@@ -54,15 +50,12 @@ pipeline:
         forceLoad: "False"
     Create Table charlies_shoe_emporium_sales:
       type: "create-table"
-      transitions:
-        success:
-        - "S3 Load charlies_shoe_emporium_sales"
       parameters:
         componentName: "Create Table charlies_shoe_emporium_sales"
         createReplace: "Replace"
         database: "[Environment Default]"
         schema: "[Environment Default]"
-        newTableName: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_FL"
+        newTableName: "RAW_CHARLIES_SHOE_EMPORIUM_SALES_${pv_state}"
         tableType: "Permanent"
         columns:
         - - "TRANSACTION_ID"
@@ -142,153 +135,19 @@ pipeline:
         clusteringKeys:
         dataRetentionTimeInDays:
         comment:
-    S3 Load charlies_shoe_emporium_shoe_specifications:
-      type: "s3-load"
-      transitions:
-        success:
-        - "And"
-      parameters:
-        componentName: "S3 Load charlies_shoe_emporium_shoe_specifications"
-        stage: "[Custom]"
-        authentication: "Credentials"
-        s3ObjectPrefix: "s3://mtln-techworkshops/"
-        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_shoe_specifications.csv"
-        encryption: "None"
-        warehouse: "[Environment Default]"
-        database: "[Environment Default]"
-        schema: "[Environment Default]"
-        targetTable: "CHARLIES_SHOE_EMPORIUM_SHOE_SPECIFICATIONS"
-        loadColumns:
-        format: "[Custom]"
-        fileType: "CSV"
-        compression: "AUTO"
-        recordDelimiter:
-        fieldDelimiter:
-        skipHeader: "1"
-        skipBlankLines: "False"
-        dateFormat:
-        timeFormat:
-        timestampFormat:
-        escape:
-        escapeUnenclosedField:
-        trimSpace: "False"
-        fieldOptionallyEnclosed:
-        nullIf:
-        errorOnColumnCountMismatch: "False"
-        emptyFieldAsNull: "True"
-        replaceInvalidCharacters: "False"
-        encodingType:
-        onError: "Abort Statement"
-        sizeLimitB:
-        purgeFiles: "False"
-        truncateColumns: "False"
-        forceLoad: "False"
-    Create Table charlies_shoe_emporium_shoe_specifications:
-      type: "create-table"
-      transitions:
-        success:
-        - "S3 Load charlies_shoe_emporium_shoe_specifications"
-      parameters:
-        componentName: "Create Table charlies_shoe_emporium_shoe_specifications"
-        createReplace: "Replace"
-        database: "[Environment Default]"
-        schema: "[Environment Default]"
-        newTableName: "CHARLIES_SHOE_EMPORIUM_SHOE_SPECIFICATIONS"
-        tableType: "Permanent"
-        columns:
-        - - "PRODUCT_NAME"
-          - "VARCHAR"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "PRIMARY_COLOR"
-          - "VARCHAR"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "SECONDARY_COLOR"
-          - "VARCHAR"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "PRODUCT_LINE"
-          - "VARCHAR"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "COMFORT"
-          - "FLOAT"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "RESPONSIVENESS"
-          - "FLOAT"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "WEIGHT_OZ"
-          - "FLOAT"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "CUSHIONING"
-          - "FLOAT"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        - - "BREATHABILITY"
-          - "FLOAT"
-          - ""
-          - ""
-          - ""
-          - "No"
-          - "No"
-          - ""
-        defaultDdlCollation:
-        primaryKeys:
-        clusteringKeys:
-        dataRetentionTimeInDays:
-        comment:
     S3 Load charlies_shoe_emporium_store_locations:
       type: "s3-load"
-      transitions:
-        success:
-        - "And"
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_store_locations"
         stage: "[Custom]"
         authentication: "Credentials"
         s3ObjectPrefix: "s3://mtln-techworkshops/"
-        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_store_locations_FL.csv"
+        pattern: "charlies_shoe_emporium/charlies_shoe_emporium_store_locations_${pv_state}.csv"
         encryption: "None"
         warehouse: "[Environment Default]"
         database: "[Environment Default]"
         schema: "[Environment Default]"
-        targetTable: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_FL"
+        targetTable: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_${pv_state}"
         loadColumns:
         format: "[Custom]"
         fileType: "CSV"
@@ -316,15 +175,12 @@ pipeline:
         forceLoad: "False"
     Create Table charlies_shoe_emporium_store_locations:
       type: "create-table"
-      transitions:
-        success:
-        - "S3 Load charlies_shoe_emporium_store_locations"
       parameters:
         componentName: "Create Table charlies_shoe_emporium_store_locations"
         createReplace: "Replace"
         database: "[Environment Default]"
         schema: "[Environment Default]"
-        newTableName: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_FL"
+        newTableName: "CHARLIES_SHOE_EMPORIUM_STORE_LOCATIONS_${pv_state}"
         tableType: "Permanent"
         columns:
         - - "STORE_ID"
@@ -352,7 +208,7 @@ pipeline:
       type: "python-pushdown"
       transitions:
         success:
-        - "Run charlie FL incremental load xform"
+        - "Grid Iterator 5"
       parameters:
         componentName: "Get Today Date - 5 days"
         externalAccessIntegrations:
@@ -385,17 +241,93 @@ pipeline:
         - "Get Today Date - 5 days"
       parameters:
         componentName: "And"
-    Run charlie FL incremental load xform:
+    Run charlie CO OR incremental load xform:
       type: "run-transformation"
       parameters:
-        componentName: "Run charlie FL incremental load xform"
-        transformationJob: "Labs/Stepping into Data with Matillion and dbt/0-Load\
-          \ Data/charlie FL incremental load xform"
+        componentName: "Run charlie CO OR incremental load xform"
+        transformationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
+          \ the Finish Line/charlie incremental load xform"
         setScalarVariables:
         - - "pv_today_date"
           - "${pv_today_date}"
+        - - "pv_state"
+          - "${pv_state}"
         setGridVariables:
+    Grid Iterator:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "Grid Iterator 2"
+      iterationTarget: "Create Table charlies_shoe_emporium_store_locations"
+      parameters:
+        componentName: "Grid Iterator"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "pv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Grid Iterator 2:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "And"
+      iterationTarget: "S3 Load charlies_shoe_emporium_store_locations"
+      parameters:
+        componentName: "Grid Iterator 2"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "pv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Grid Iterator 3:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "Grid Iterator 4"
+      iterationTarget: "Create Table charlies_shoe_emporium_sales"
+      parameters:
+        componentName: "Grid Iterator 3"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "pv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Grid Iterator 4:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "And"
+      iterationTarget: "S3 Load charlies_shoe_emporium_sales"
+      parameters:
+        componentName: "Grid Iterator 4"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "pv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Grid Iterator 5:
+      type: "grid-iterator"
+      iterationTarget: "Run charlie CO OR incremental load xform"
+      parameters:
+        componentName: "Grid Iterator 5"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "pv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
   variables:
+    pv_state:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "CO"
     pv_today_date:
       metadata:
         type: "TEXT"
@@ -403,6 +335,18 @@ pipeline:
         scope: "SHARED"
         visibility: "PUBLIC"
       defaultValue: "1900-01-01"
+    gv_state_list:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+        columns:
+          gvc_state_list:
+            columnType: "TEXT"
+      defaultValue:
+      - - "CO"
+      - - "OR"
 design:
   components:
     Start:
@@ -413,32 +357,22 @@ design:
     S3 Load charlies_shoe_emporium_sales:
       position:
         x: 340
-        "y": 0
+        "y": -10
       tempMetlId: 2
     Create Table charlies_shoe_emporium_sales:
       position:
-        x: 140
-        "y": 0
+        x: 150
+        "y": -10
       tempMetlId: 3
-    S3 Load charlies_shoe_emporium_shoe_specifications:
-      position:
-        x: 340
-        "y": 120
-      tempMetlId: 4
-    Create Table charlies_shoe_emporium_shoe_specifications:
-      position:
-        x: 140
-        "y": 120
-      tempMetlId: 5
     S3 Load charlies_shoe_emporium_store_locations:
       position:
         x: 340
-        "y": 240
+        "y": 140
       tempMetlId: 6
     Create Table charlies_shoe_emporium_store_locations:
       position:
-        x: 140
-        "y": 240
+        x: 150
+        "y": 140
       tempMetlId: 7
     Get Today Date - 5 days:
       position:
@@ -450,8 +384,33 @@ design:
         x: 570
         "y": 0
       tempMetlId: 11
-    Run charlie FL incremental load xform:
+    Run charlie CO OR incremental load xform:
       position:
-        x: 890
-        "y": 0
+        x: 900
+        "y": -10
       tempMetlId: 12
+    Grid Iterator:
+      position:
+        x: 150
+        "y": 140
+      tempMetlId: 13
+    Grid Iterator 2:
+      position:
+        x: 340
+        "y": 140
+      tempMetlId: 14
+    Grid Iterator 3:
+      position:
+        x: 150
+        "y": -10
+      tempMetlId: 15
+    Grid Iterator 4:
+      position:
+        x: 340
+        "y": -10
+      tempMetlId: 16
+    Grid Iterator 5:
+      position:
+        x: 900
+        "y": -10
+      tempMetlId: 17
