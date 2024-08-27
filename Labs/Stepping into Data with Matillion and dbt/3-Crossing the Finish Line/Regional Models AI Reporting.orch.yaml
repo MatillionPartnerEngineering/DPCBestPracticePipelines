@@ -1,0 +1,300 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Build State-Specific Model"
+      parameters:
+        componentName: "Start"
+    If CO:
+      type: "if"
+      transitions:
+        "true":
+        - "Append To Grid CO"
+        "false":
+        - "If FL"
+      parameters:
+        componentName: "If CO"
+        mode: "Simple"
+        condition:
+        - - "pv_state"
+          - "Is"
+          - "Equal to"
+          - "CO"
+        combineConditions: "And"
+    If FL:
+      type: "if"
+      transitions:
+        "true":
+        - "Append To Grid FL"
+        "false":
+        - "If OR"
+      parameters:
+        componentName: "If FL"
+        mode: "Simple"
+        condition:
+        - - "pv_state"
+          - "Is"
+          - "Equal to"
+          - "CO"
+        combineConditions: "And"
+    If OR:
+      type: "if"
+      transitions:
+        "true":
+        - "Append To Grid OR"
+      parameters:
+        componentName: "If OR"
+        mode: "Simple"
+        condition:
+        - - "pv_state"
+          - "Is"
+          - "Equal to"
+          - "OR"
+        combineConditions: "And"
+    Append To Grid CO:
+      type: "append-to-grid"
+      transitions:
+        success:
+        - "Or"
+      parameters:
+        componentName: "Append To Grid CO"
+        operation: "Append"
+        targetGridVariable: "gv_prompt_email_details"
+        valuesGrid:
+        - - "colorado_gms@charliesshoeemporium.com"
+          - "For Colorado GM's Eyes ONLY: Your Sales Summary"
+          - "Hidey ho, Coloradoans! Climb a 14er. Here is how your 2024 is looking:"
+          - "Please summarize and give projections on future sales for the Colorado\
+            \ stores.Given the regional success of Dick's Sporting Goods and Nike\
+            \ as the regional shoe retailers in the state, also give advice on how\
+            \ to overcome these larger competitors. "
+    Or:
+      type: "or"
+      transitions:
+        unconditional:
+        - "Grid Iterator"
+      parameters:
+        componentName: "Or"
+    Send Email:
+      type: "send-email"
+      parameters:
+        componentName: "Send Email"
+        toRecipients:
+        ccRecipients:
+        subject:
+        message:
+        senderAddress:
+        replyAddress:
+        smtpUsername:
+        smtpPassword:
+        smtpHostname:
+        smtpPort: "25"
+        enableSslTls:
+        enableStarttls: "Yes"
+    Run Cortex Reporting:
+      type: "run-transformation"
+      parameters:
+        componentName: "Run Cortex Reporting"
+        transformationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
+          \ the Finish Line/Cortex Reporting"
+        setScalarVariables:
+        - - "pv_state"
+          - "${pv_state}"
+        setGridVariables:
+    Append To Grid FL:
+      type: "append-to-grid"
+      transitions:
+        success:
+        - "Or"
+      parameters:
+        componentName: "Append To Grid FL"
+        operation: "Append"
+        targetGridVariable: "gv_prompt_email_details"
+        valuesGrid:
+        - - "florida_gms@charliesshoeemporium.com"
+          - "For Florida GM's Eyes ONLY: Your Sales Summary"
+          - "Hello Sunshine State Superstars, here is how your 2024 is looking:"
+          - "Please summarize and give projections on future sales for the Florida\
+            \ stores, denoted as FL in the state column. The Florida General Managers\
+            \ are also looking for creative ways to market the shoe sales to local\
+            \ sports teams. Please give ideas on how to be able to do so."
+    Append To Grid OR:
+      type: "append-to-grid"
+      transitions:
+        success:
+        - "Or"
+      parameters:
+        componentName: "Append To Grid OR"
+        operation: "Append"
+        targetGridVariable: "gv_prompt_email_details"
+        valuesGrid:
+        - - "oregon_gms@charliesshoeemporium.com"
+          - "For Oregon GM's Eyes ONLY: Your Sales Summary"
+          - "Hello Oregonians, let's go check out a Timbers match sometime! Here is\
+            \ how your 2024 is looking:"
+          - "Please summarize and give projections on future sales for the Oregon\
+            \ stores, denoted as OR in the state column. The Oregon General Managers\
+            \ are also looking for creative ways to market the shoe sales to hikers\
+            \ and outdoor enthusiasts. Please give ideas on how to be able to do so."
+    Query Result To Scalar:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "Grid Iterator 2"
+      parameters:
+        componentName: "Query Result To Scalar"
+        mode: "Advanced"
+        query:
+        scalarVariableMapping:
+    Build State-Specific Model:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "If CO"
+      parameters:
+        componentName: "Build State-Specific Model"
+        command: "dbt run --select DIM_CHARLIES_SALES_${pv_state}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "crossing"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        - - "DBT_STATE"
+          - "${pv_state}"
+        config:
+        profileConfig:
+    Grid Iterator:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "Query Result To Scalar"
+      iterationTarget: "Run Cortex Reporting"
+      parameters:
+        componentName: "Grid Iterator"
+        gridVariable: "gv_prompt_email_details"
+        gridIteratorVariableMapping:
+        - - "cortex_prompt"
+          - "pv_prompt"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Grid Iterator 2:
+      type: "grid-iterator"
+      iterationTarget: "Send Email"
+      parameters:
+        componentName: "Grid Iterator 2"
+        gridVariable:
+        gridIteratorVariableMapping:
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+  variables:
+    pv_state:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT"
+    pv_prompt:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT"
+    gv_prompt_email_details:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+        columns:
+          to_recipients:
+            columnType: "TEXT"
+          subject:
+            columnType: "TEXT"
+          message:
+            columnType: "TEXT"
+          cortex_prompt:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Start:
+      position:
+        x: -100
+        "y": 0
+      tempMetlId: 1
+    If CO:
+      position:
+        x: 160
+        "y": 0
+      tempMetlId: 2
+    If FL:
+      position:
+        x: 160
+        "y": 90
+      tempMetlId: 3
+    If OR:
+      position:
+        x: 160
+        "y": 190
+      tempMetlId: 4
+    Append To Grid CO:
+      position:
+        x: 300
+        "y": 0
+      tempMetlId: 5
+    Or:
+      position:
+        x: 440
+        "y": 90
+      tempMetlId: 6
+    Send Email:
+      position:
+        x: 970
+        "y": 80
+      tempMetlId: 7
+    Run Cortex Reporting:
+      position:
+        x: 600
+        "y": 80
+      tempMetlId: 8
+    Append To Grid FL:
+      position:
+        x: 300
+        "y": 90
+      tempMetlId: 9
+    Append To Grid OR:
+      position:
+        x: 300
+        "y": 190
+      tempMetlId: 10
+    Query Result To Scalar:
+      position:
+        x: 780
+        "y": 90
+      tempMetlId: 11
+    Build State-Specific Model:
+      position:
+        x: 30
+        "y": 0
+      tempMetlId: 13
+    Grid Iterator:
+      position:
+        x: 600
+        "y": 80
+      tempMetlId: 14
+    Grid Iterator 2:
+      position:
+        x: 970
+        "y": 80
+      tempMetlId: 15

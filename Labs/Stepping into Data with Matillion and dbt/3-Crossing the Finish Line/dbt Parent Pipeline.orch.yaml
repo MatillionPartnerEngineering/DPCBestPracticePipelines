@@ -6,20 +6,9 @@ pipeline:
       type: "start"
       transitions:
         unconditional:
-        - "Run FL charlies_shoe_emporium data"
+        - "Run Lacing Up Getting Started with Matillion and dbt"
       parameters:
         componentName: "Start"
-    Run FL charlies_shoe_emporium data:
-      type: "run-orchestration"
-      transitions:
-        success:
-        - "Run CO OR charlies_shoe_emporium data"
-      parameters:
-        componentName: "Run FL charlies_shoe_emporium data"
-        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/0-Load Data/load\
-          \ charlies_shoe_emporium data"
-        setScalarVariables:
-        setGridVariables:
     Run Lacing Up Getting Started with Matillion and dbt:
       type: "run-orchestration"
       transitions:
@@ -50,29 +39,13 @@ pipeline:
           \ the Finish Line/Crossing the Finish Line"
         setScalarVariables:
         setGridVariables:
-    Run CO OR charlies_shoe_emporium data:
-      type: "run-orchestration"
-      transitions:
-        success:
-        - "Run Lacing Up Getting Started with Matillion and dbt"
-      parameters:
-        componentName: "Run CO OR charlies_shoe_emporium data"
-        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
-          \ the Finish Line/load charlies_shoe_emporium data"
-        setScalarVariables:
-        setGridVariables:
 design:
   components:
     Start:
       position:
-        x: -150
+        x: 150
         "y": 0
       tempMetlId: 1
-    Run FL charlies_shoe_emporium data:
-      position:
-        x: -10
-        "y": 0
-      tempMetlId: 2
     Run Lacing Up Getting Started with Matillion and dbt:
       position:
         x: 330
@@ -88,8 +61,3 @@ design:
         x: 670
         "y": 0
       tempMetlId: 5
-    Run CO OR charlies_shoe_emporium data:
-      position:
-        x: 160
-        "y": 0
-      tempMetlId: 6

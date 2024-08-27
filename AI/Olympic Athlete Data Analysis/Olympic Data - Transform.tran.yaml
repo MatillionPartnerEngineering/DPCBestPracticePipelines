@@ -339,8 +339,8 @@ design:
       tempMetlId: 11
     Rewrite top_10_athletes_summer_2016:
       position:
-        x: 2040
-        "y": 470
+        x: 2010
+        "y": 450
       tempMetlId: 12
   notes:
     "1":
@@ -384,12 +384,3 @@ design:
       theme: "white"
       content: "Rank these athletes by the sum of their medal points descending, and\
         \ select only the top 10"
-    "5":
-      position:
-        x: 1570
-        "y": 700
-      size:
-        height: 420
-        width: 300
-      theme: "white"
-      content: ""

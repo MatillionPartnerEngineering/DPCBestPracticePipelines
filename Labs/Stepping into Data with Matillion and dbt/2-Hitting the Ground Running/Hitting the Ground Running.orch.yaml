@@ -255,7 +255,7 @@ design:
     And:
       position:
         x: 340
-        "y": 90
+        "y": 100
       tempMetlId: 5
     Send dbt Setup Failure Email:
       position:
@@ -279,8 +279,8 @@ design:
       tempMetlId: 12
     End Success:
       position:
-        x: 990
-        "y": 90
+        x: 980
+        "y": 100
       tempMetlId: 13
     dbt compile:
       position:
@@ -290,17 +290,17 @@ design:
     dbt test:
       position:
         x: 460
-        "y": 90
+        "y": 100
       tempMetlId: 15
     dbt source freshness:
       position:
         x: 460
-        "y": 170
+        "y": 190
       tempMetlId: 16
     Send dbt Test Success Email:
       position:
         x: 590
-        "y": 90
+        "y": 100
       tempMetlId: 17
     Send dbt Test Failure Email:
       position:

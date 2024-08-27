@@ -155,86 +155,8 @@ pipeline:
         warehouse: "[Environment Default]"
         database: "[Environment Default]"
         schema: "[Environment Default]"
-        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_${pv_state}"
+        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES"
         orderBy:
-    SRC_CHARLIES_SHOE_EMPORIUM_SALES_CO:
-      type: "table-input"
-      parameters:
-        componentName: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_CO"
-        database: "[Environment Default]"
-        schema: "[Environment Default]"
-        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_CO"
-        columnNames:
-        - "LAST_UPDATED"
-        - "STORE_LOCATION"
-        - "TRANSACTION_ID"
-        - "TRANSACTION_DATE"
-        - "PRODUCT_NAME"
-        - "SALE_INDICATOR"
-        - "PRODUCT_PRICE"
-        - "REVIEW_INDICATOR"
-        - "REVIEW"
-        - "PRIMARY_COLOR"
-        - "SECONDARY_COLAR"
-        - "PRODUCT_LINE"
-        - "COMFORT"
-        - "RESPONSIVENESS"
-        - "WEIGHT_OZ"
-        - "CUSHIONING"
-        - "BREATHABILITY"
-        timeOffset:
-    SRC_CHARLIES_SHOE_EMPORIUM_SALES_OR:
-      type: "table-input"
-      parameters:
-        componentName: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_OR"
-        database: "[Environment Default]"
-        schema: "[Environment Default]"
-        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_OR"
-        columnNames:
-        - "LAST_UPDATED"
-        - "STORE_LOCATION"
-        - "TRANSACTION_ID"
-        - "TRANSACTION_DATE"
-        - "PRODUCT_NAME"
-        - "SALE_INDICATOR"
-        - "PRODUCT_PRICE"
-        - "REVIEW_INDICATOR"
-        - "REVIEW"
-        - "PRIMARY_COLOR"
-        - "SECONDARY_COLAR"
-        - "PRODUCT_LINE"
-        - "COMFORT"
-        - "RESPONSIVENESS"
-        - "WEIGHT_OZ"
-        - "CUSHIONING"
-        - "BREATHABILITY"
-        timeOffset:
-    SRC_CHARLIES_SHOE_EMPORIUM_SALES_FL:
-      type: "table-input"
-      parameters:
-        componentName: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_FL"
-        database: "[Environment Default]"
-        schema: "[Environment Default]"
-        targetTable: "SRC_CHARLIES_SHOE_EMPORIUM_SALES_FL"
-        columnNames:
-        - "LAST_UPDATED"
-        - "STORE_LOCATION"
-        - "TRANSACTION_ID"
-        - "TRANSACTION_DATE"
-        - "PRODUCT_NAME"
-        - "SALE_INDICATOR"
-        - "PRODUCT_PRICE"
-        - "REVIEW_INDICATOR"
-        - "REVIEW"
-        - "PRIMARY_COLOR"
-        - "SECONDARY_COLAR"
-        - "PRODUCT_LINE"
-        - "COMFORT"
-        - "RESPONSIVENESS"
-        - "WEIGHT_OZ"
-        - "CUSHIONING"
-        - "BREATHABILITY"
-        timeOffset:
   variables:
     pv_state:
       metadata:
@@ -292,18 +214,3 @@ design:
         x: 840
         "y": 230
       tempMetlId: 14
-    SRC_CHARLIES_SHOE_EMPORIUM_SALES_CO:
-      position:
-        x: 1010
-        "y": 230
-      tempMetlId: 15
-    SRC_CHARLIES_SHOE_EMPORIUM_SALES_OR:
-      position:
-        x: 1010
-        "y": 360
-      tempMetlId: 16
-    SRC_CHARLIES_SHOE_EMPORIUM_SALES_FL:
-      position:
-        x: 1010
-        "y": 120
-      tempMetlId: 17

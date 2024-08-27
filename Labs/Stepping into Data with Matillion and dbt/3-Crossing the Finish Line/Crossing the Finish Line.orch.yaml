@@ -6,14 +6,17 @@ pipeline:
       type: "start"
       transitions:
         unconditional:
-        - "dbt Core"
+        - "Append To Grid"
       parameters:
         componentName: "Start"
-    dbt Core:
+    dbt build:
       type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "Grid Iterator 2"
       parameters:
-        componentName: "dbt Core"
-        command: "dbt build --select 3-crossing-finish-line"
+        componentName: "dbt build"
+        command: "dbt build --select 3a-crossing-finish-line"
         dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
         branch: "crossing"
         gitFolderPath:
@@ -26,18 +29,108 @@ pipeline:
           - "KAREY"
         config:
         profileConfig:
+    Load FL CO and OR Charlies Sales Data:
+      type: "run-orchestration"
+      transitions:
+        success:
+        - "dbt build"
+      parameters:
+        componentName: "Load FL CO and OR Charlies Sales Data"
+        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
+          \ the Finish Line/load charlies_shoe_emporium data"
+        setScalarVariables:
+        setGridVariables:
+        - variable: "gv_state_list"
+          status: "grid"
+          gridValues:
+            fromGrid:
+              variable: "gv_state_list"
+              columns:
+              - "gvc_state_list"
+    Append To Grid:
+      type: "append-to-grid"
+      transitions:
+        success:
+        - "Load FL CO and OR Charlies Sales Data"
+      parameters:
+        componentName: "Append To Grid"
+        operation: "Append"
+        targetGridVariable: "gv_state_list"
+        valuesGrid:
+        - - "CO"
+        - - "OR"
+        - - "FL"
+    Run Regional Models AI Reporting:
+      type: "run-orchestration"
+      parameters:
+        componentName: "Run Regional Models AI Reporting"
+        orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
+          \ the Finish Line/Regional Models AI Reporting"
+        setScalarVariables:
+        - - "pv_state"
+          - "${pv_state}"
+        setGridVariables:
+    Grid Iterator 2:
+      type: "grid-iterator"
+      iterationTarget: "Run Regional Models AI Reporting"
+      parameters:
+        componentName: "Grid Iterator 2"
+        gridVariable: "gv_state_list"
+        gridIteratorVariableMapping:
+        - - "gvc_state_list"
+          - "pv_state"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+  variables:
+    pv_state:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT pv_state_name"
+    gv_state_list:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+        columns:
+          gvc_state_list:
+            columnType: "TEXT"
+      defaultValue: []
 design:
   components:
     Start:
       position:
-        x: -80
+        x: -220
         "y": 10
       tempMetlId: 1
-    dbt Core:
+    dbt build:
       position:
-        x: 40
+        x: 260
         "y": 10
       tempMetlId: 2
+    Load FL CO and OR Charlies Sales Data:
+      position:
+        x: 100
+        "y": 10
+      tempMetlId: 3
+    Append To Grid:
+      position:
+        x: -70
+        "y": 10
+      tempMetlId: 7
+    Run Regional Models AI Reporting:
+      position:
+        x: 440
+        "y": 0
+      tempMetlId: 8
+    Grid Iterator 2:
+      position:
+        x: 440
+        "y": 0
+      tempMetlId: 9
   notes:
     "1":
       position:

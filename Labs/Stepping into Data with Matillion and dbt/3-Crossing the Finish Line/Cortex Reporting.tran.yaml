@@ -1,0 +1,161 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    DIM_CHARLIES_SALES:
+      type: "table-input"
+      parameters:
+        componentName: "DIM_CHARLIES_SALES"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "DIM_CHARLIES_SALES_${pv_state}"
+        columnNames:
+        - "STORE_ID"
+        - "LOCATION_NAME"
+        - "STATE"
+        - "GM_NAME"
+        - "TRANSACTION_ID"
+        - "TRANSACTION_YEAR"
+        - "TRANSACTION_MONTH"
+        - "PRODUCT_NAME"
+        - "SALE_INDICATOR"
+        - "PRODUCT_PRICE"
+        - "REVIEW"
+        - "PRIMARY_COLOR"
+        - "SECONDARY_COLAR"
+        - "PRODUCT_LINE"
+        - "COMFORT"
+        - "RESPONSIVENESS"
+        - "WEIGHT_OZ"
+        - "CUSHIONING"
+        - "BREATHABILITY"
+        timeOffset:
+    Cortex Sentiment:
+      type: "cortex-sentiment"
+      sources:
+      - "Only Reviews in 2024"
+      parameters:
+        componentName: "Cortex Sentiment"
+        columns:
+        - "REVIEW"
+        includeInputColumns: "Yes"
+    Only Reviews in 2024:
+      type: "filter"
+      sources:
+      - "DIM_CHARLIES_SALES"
+      parameters:
+        componentName: "Only Reviews in 2024"
+        filterConditions:
+        - - "TRANSACTION_YEAR"
+          - "Is"
+          - "Equal to"
+          - "2024"
+        - - "REVIEW"
+          - "Not"
+          - "Null"
+          - ""
+        combineCondition: "And"
+    Aggregate:
+      type: "aggregate"
+      sources:
+      - "Cortex Sentiment"
+      parameters:
+        componentName: "Aggregate"
+        groupings:
+        - "STATE"
+        aggregations:
+        - - "sentiment_REVIEW"
+          - "Average"
+        groupingType: "Group By"
+    CHARLIES_SALES_SUMMARY_2024:
+      type: "table-input"
+      parameters:
+        componentName: "CHARLIES_SALES_SUMMARY_2024"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CHARLIES_SALES_SUMMARY_2024"
+        columnNames:
+        - "sum_PRODUCT_PRICE"
+        - "count_TRANSACTION_ID"
+        - "STATE"
+        - "Rank"
+        timeOffset:
+    Filter:
+      type: "filter"
+      sources:
+      - "CHARLIES_SALES_SUMMARY_2024"
+      parameters:
+        componentName: "Filter"
+        filterConditions:
+        - - "STATE"
+          - "Is"
+          - "Equal to"
+          - "${pv_state}"
+        combineCondition: "And"
+    Join:
+      type: "join"
+      sources:
+      - "Filter"
+      - "Aggregate"
+      parameters:
+        componentName: "Join"
+        mainTable: "Filter"
+        mainTableAlias: "sales"
+        joins:
+        - - "Aggregate"
+          - "sentiment"
+          - ""
+        joinExpressions:
+        columnMappings:
+  variables:
+    pv_state:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "CO"
+    pv_prompt:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT"
+design:
+  components:
+    DIM_CHARLIES_SALES:
+      position:
+        x: -20
+        "y": 120
+      tempMetlId: 1
+    Cortex Sentiment:
+      position:
+        x: 290
+        "y": 120
+      tempMetlId: 4
+    Only Reviews in 2024:
+      position:
+        x: 140
+        "y": 120
+      tempMetlId: 5
+    Aggregate:
+      position:
+        x: 450
+        "y": 120
+      tempMetlId: 6
+    CHARLIES_SALES_SUMMARY_2024:
+      position:
+        x: 290
+        "y": 30
+      tempMetlId: 7
+    Filter:
+      position:
+        x: 450
+        "y": 30
+      tempMetlId: 8
+    Join:
+      position:
+        x: 630
+        "y": 120
+      tempMetlId: 9
