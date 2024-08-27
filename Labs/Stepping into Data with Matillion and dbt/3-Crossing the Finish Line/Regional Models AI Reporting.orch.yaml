@@ -39,7 +39,7 @@ pipeline:
         - - "pv_state"
           - "Is"
           - "Equal to"
-          - "CO"
+          - "FL"
         combineConditions: "And"
     If OR:
       type: "if"
@@ -68,10 +68,18 @@ pipeline:
         - - "colorado_gms@charliesshoeemporium.com"
           - "For Colorado GM's Eyes ONLY: Your Sales Summary"
           - "Hidey ho, Coloradoans! Climb a 14er. Here is how your 2024 is looking:"
-          - "Please summarize and give projections on future sales for the Colorado\
-            \ stores.Given the regional success of Dick's Sporting Goods and Nike\
-            \ as the regional shoe retailers in the state, also give advice on how\
-            \ to overcome these larger competitors. "
+          - "I want a response that does 3 things: 1) Please take a look at the rank\
+            \ column - this column denotes how well the Colorado stores performed\
+            \ against the Florida and Oregon stores. Please give a snarky review of\
+            \ this ranking in the tone of a stereotypical Coloradoan; 1 being the\
+            \ best, 2 right in the middle, and 3 being the worst. 2) Also take a look\
+            \ at the avg_sentiment_REVIEW which communicates the sentiment of reviews\
+            \ given to the stores in the state in the current year. Again, please\
+            \ give a snarky summary of the sentiment score. 3) Finally, given the\
+            \ regional success of Dick's Sporting Goods and Nike as the regional shoe\
+            \ retailers in the state of Colorado, also give advice on how to overcome\
+            \ these larger competitors. "
+          - "CO"
     Or:
       type: "or"
       transitions:
@@ -79,22 +87,6 @@ pipeline:
         - "Grid Iterator"
       parameters:
         componentName: "Or"
-    Send Email:
-      type: "send-email"
-      parameters:
-        componentName: "Send Email"
-        toRecipients:
-        ccRecipients:
-        subject:
-        message:
-        senderAddress:
-        replyAddress:
-        smtpUsername:
-        smtpPassword:
-        smtpHostname:
-        smtpPort: "25"
-        enableSslTls:
-        enableStarttls: "Yes"
     Run Cortex Reporting:
       type: "run-transformation"
       parameters:
@@ -104,6 +96,8 @@ pipeline:
         setScalarVariables:
         - - "pv_state"
           - "${pv_state}"
+        - - "pv_prompt"
+          - "${pv_prompt}"
         setGridVariables:
     Append To Grid FL:
       type: "append-to-grid"
@@ -118,10 +112,17 @@ pipeline:
         - - "florida_gms@charliesshoeemporium.com"
           - "For Florida GM's Eyes ONLY: Your Sales Summary"
           - "Hello Sunshine State Superstars, here is how your 2024 is looking:"
-          - "Please summarize and give projections on future sales for the Florida\
-            \ stores, denoted as FL in the state column. The Florida General Managers\
-            \ are also looking for creative ways to market the shoe sales to local\
-            \ sports teams. Please give ideas on how to be able to do so."
+          - "I want a response that does 3 things: 1) Please take a look at the rank\
+            \ column - this column denotes how well the Florida stores performed against\
+            \ the Colorado and Oregon stores. Please give a snarky review of this\
+            \ ranking in the tone of a stereotypical Floridian, 1 being the best,\
+            \ 2 right in the middle, and 3 being the worst. 2) Also take a look at\
+            \ the avg_sentiment_REVIEW which communicates the sentiment of reviews\
+            \ given to the stores in the state in the current year. Again, please\
+            \ give a snarky summary of the sentiment score. 3)  The Florida General\
+            \ Managers are also looking for creative ways to market the shoe sales\
+            \ to local sports teams. Please give ideas on how to be able to do so."
+          - "FL"
     Append To Grid OR:
       type: "append-to-grid"
       transitions:
@@ -136,20 +137,52 @@ pipeline:
           - "For Oregon GM's Eyes ONLY: Your Sales Summary"
           - "Hello Oregonians, let's go check out a Timbers match sometime! Here is\
             \ how your 2024 is looking:"
-          - "Please summarize and give projections on future sales for the Oregon\
-            \ stores, denoted as OR in the state column. The Oregon General Managers\
-            \ are also looking for creative ways to market the shoe sales to hikers\
-            \ and outdoor enthusiasts. Please give ideas on how to be able to do so."
-    Query Result To Scalar:
+          - "I want a response that does 3 things: 1) Please take a look at the rank\
+            \ column - this column denotes how well the Oregon stores performed against\
+            \ the Florida and Colorado stores. Please give a snarky review of this\
+            \ ranking in the tone of a stereotypical Oregonian, 1 being the best,\
+            \ 2 right in the middle, and 3 being the worst. 2) Also take a look at\
+            \ the avg_sentiment_REVIEW which communicates the sentiment of reviews\
+            \ given to the stores in the state in the current year. Again, please\
+            \ give a snarky summary of the sentiment score. 3) The Oregon General\
+            \ Managers are also looking for creative ways to market the shoe sales\
+            \ to hikers and outdoor enthusiasts. Please give ideas on how to be able\
+            \ to do so."
+          - "OR"
+    Query Result To Scalar - Sales Summary:
       type: "query-to-scalar"
       transitions:
         success:
-        - "Grid Iterator 2"
+        - "And"
       parameters:
-        componentName: "Query Result To Scalar"
-        mode: "Advanced"
-        query:
+        componentName: "Query Result To Scalar - Sales Summary"
+        mode: "Basic"
         scalarVariableMapping:
+        - - "top_product_count"
+          - "count_TRANSACTION_ID"
+        - - "top_rank"
+          - "Rank"
+        - - "top_product_price"
+          - "sum_PRODUCT_PRICE"
+        - - "top_year"
+          - "TRANSACTION_YEAR"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        table: "CHARLIES_SALES_SUMMARY"
+        tableColumns:
+        - "sum_PRODUCT_PRICE"
+        - "count_TRANSACTION_ID"
+        - "Rank"
+        - "TRANSACTION_YEAR"
+        orderBy:
+        sort: "Descending"
+        limit: "1"
+        filterConditions:
+        - - "STATE"
+          - "Is"
+          - "Equal to"
+          - "${pv_state}"
+        combineCondition: "And"
     Build State-Specific Model:
       type: "commands-for-dbt-core"
       transitions:
@@ -176,7 +209,9 @@ pipeline:
       type: "grid-iterator"
       transitions:
         success:
-        - "Query Result To Scalar"
+        - "Query Result To Scalar - Sales Summary"
+        - "Query Result To Scalar - Sales 2024"
+        - "Query Result To Scalar - Cortex Output"
       iterationTarget: "Run Cortex Reporting"
       parameters:
         componentName: "Grid Iterator"
@@ -184,25 +219,175 @@ pipeline:
         gridIteratorVariableMapping:
         - - "cortex_prompt"
           - "pv_prompt"
+        - - "state"
+          - "pv_state"
         breakOnFailure: "No"
         concurrency: "Sequential"
+    Query Result To Scalar - Sales 2024:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "And"
+      parameters:
+        componentName: "Query Result To Scalar - Sales 2024"
+        mode: "Basic"
+        scalarVariableMapping:
+        - - "product_count_2024"
+          - "count_TRANSACTION_ID"
+        - - "product_price_2024"
+          - "sum_PRODUCT_PRICE"
+        - - "rank_2024"
+          - "Rank"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        table: "CHARLIES_SALES_SUMMARY_2024"
+        tableColumns:
+        - "sum_PRODUCT_PRICE"
+        - "count_TRANSACTION_ID"
+        - "Rank"
+        orderBy:
+        sort: "Ascending"
+        limit: "1"
+        filterConditions:
+        - - "STATE"
+          - "Is"
+          - "Equal to"
+          - "${pv_state}"
+        combineCondition: "And"
+    Query Result To Scalar - Cortex Output:
+      type: "query-to-scalar"
+      transitions:
+        success:
+        - "And"
+      parameters:
+        componentName: "Query Result To Scalar - Cortex Output"
+        mode: "Basic"
+        scalarVariableMapping:
+        - - "pv_cortex"
+          - "messages"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        table: "CORTEX_${pv_state}"
+        tableColumns:
+        - "messages"
+        orderBy:
+        sort: "Ascending"
+        limit: "1"
+        filterConditions:
+        combineCondition: "And"
+    And:
+      type: "and"
+      transitions:
+        unconditional:
+        - "Grid Iterator 2"
+      parameters:
+        componentName: "And"
+    Send dbt Test Failure Email:
+      type: "send-email"
+      parameters:
+        componentName: "Send dbt Test Failure Email"
+        toRecipients:
+        - - "${email_to_recipients}"
+        ccRecipients:
+        - - "karey.graham@matillion.com"
+        subject: "${email_subject}"
+        message: |-
+          ${email_message}
+
+          ${pv_state}'s Top Year: ${top_year}
+          Sales Revenue: ${top_product_price}
+          Units Sold: ${top_product_count}
+          Yearly Rank, all time, all states: ${top_rank}
+
+          ${pv_state} Sales at a Glance:
+          Total Sales Revenue: ${product_price_2024}
+          Total Units Sold: ${product_count_2024}
+          State Rank: ${rank_2024}
+
+          Your AI Assistant Review:
+          ${pv_cortex}
+
+          Love, Your Matillion Team
+        senderAddress: "matillion@steppingintodata.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
     Grid Iterator 2:
       type: "grid-iterator"
-      iterationTarget: "Send Email"
+      iterationTarget: "Send dbt Test Failure Email"
       parameters:
         componentName: "Grid Iterator 2"
-        gridVariable:
+        gridVariable: "gv_prompt_email_details"
         gridIteratorVariableMapping:
+        - - "message"
+          - "email_message"
+        - - "subject"
+          - "email_subject"
+        - - "to_recipients"
+          - "email_to_recipients"
         breakOnFailure: "No"
         concurrency: "Sequential"
   variables:
+    product_count_2024:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    top_product_count:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    top_year:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    email_to_recipients:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    email_message:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "default@default.com"
     pv_state:
       metadata:
         type: "TEXT"
         description: ""
         scope: "SHARED"
         visibility: "PUBLIC"
-      defaultValue: "DEFAULT"
+      defaultValue: "CO"
+    rank_2024:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    pv_cortex:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
     pv_prompt:
       metadata:
         type: "TEXT"
@@ -210,6 +395,34 @@ pipeline:
         scope: "SHARED"
         visibility: "PUBLIC"
       defaultValue: "DEFAULT"
+    top_product_price:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    product_price_2024:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    top_rank:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    email_subject:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "Default Subject"
     gv_prompt_email_details:
       metadata:
         type: "GRID"
@@ -224,6 +437,8 @@ pipeline:
           message:
             columnType: "TEXT"
           cortex_prompt:
+            columnType: "TEXT"
+          state:
             columnType: "TEXT"
       defaultValue: []
 design:
@@ -258,14 +473,9 @@ design:
         x: 440
         "y": 90
       tempMetlId: 6
-    Send Email:
-      position:
-        x: 970
-        "y": 80
-      tempMetlId: 7
     Run Cortex Reporting:
       position:
-        x: 600
+        x: 590
         "y": 80
       tempMetlId: 8
     Append To Grid FL:
@@ -278,9 +488,9 @@ design:
         x: 300
         "y": 190
       tempMetlId: 10
-    Query Result To Scalar:
+    Query Result To Scalar - Sales Summary:
       position:
-        x: 780
+        x: 770
         "y": 90
       tempMetlId: 11
     Build State-Specific Model:
@@ -290,11 +500,31 @@ design:
       tempMetlId: 13
     Grid Iterator:
       position:
-        x: 600
+        x: 590
         "y": 80
       tempMetlId: 14
+    Query Result To Scalar - Sales 2024:
+      position:
+        x: 770
+        "y": 0
+      tempMetlId: 16
+    Query Result To Scalar - Cortex Output:
+      position:
+        x: 770
+        "y": 190
+      tempMetlId: 17
+    And:
+      position:
+        x: 940
+        "y": 90
+      tempMetlId: 18
+    Send dbt Test Failure Email:
+      position:
+        x: 1080
+        "y": 80
+      tempMetlId: 19
     Grid Iterator 2:
       position:
-        x: 970
+        x: 1080
         "y": 80
-      tempMetlId: 15
+      tempMetlId: 20

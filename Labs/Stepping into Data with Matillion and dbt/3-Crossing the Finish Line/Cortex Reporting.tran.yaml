@@ -30,12 +30,12 @@ pipeline:
         - "CUSHIONING"
         - "BREATHABILITY"
         timeOffset:
-    Cortex Sentiment:
+    Cortex Sentiment of Customer Reviews:
       type: "cortex-sentiment"
       sources:
       - "Only Reviews in 2024"
       parameters:
-        componentName: "Cortex Sentiment"
+        componentName: "Cortex Sentiment of Customer Reviews"
         columns:
         - "REVIEW"
         includeInputColumns: "Yes"
@@ -55,12 +55,12 @@ pipeline:
           - "Null"
           - ""
         combineCondition: "And"
-    Aggregate:
+    Average Sentiment Analysis:
       type: "aggregate"
       sources:
-      - "Cortex Sentiment"
+      - "Cortex Sentiment of Customer Reviews"
       parameters:
-        componentName: "Aggregate"
+        componentName: "Average Sentiment Analysis"
         groupings:
         - "STATE"
         aggregations:
@@ -80,12 +80,12 @@ pipeline:
         - "STATE"
         - "Rank"
         timeOffset:
-    Filter:
+    Only State:
       type: "filter"
       sources:
       - "CHARLIES_SALES_SUMMARY_2024"
       parameters:
-        componentName: "Filter"
+        componentName: "Only State"
         filterConditions:
         - - "STATE"
           - "Is"
@@ -95,18 +95,146 @@ pipeline:
     Join:
       type: "join"
       sources:
-      - "Filter"
-      - "Aggregate"
+      - "Only State"
+      - "Average Sentiment Analysis"
       parameters:
         componentName: "Join"
-        mainTable: "Filter"
+        mainTable: "Only State"
         mainTableAlias: "sales"
         joins:
-        - - "Aggregate"
+        - - "Average Sentiment Analysis"
           - "sentiment"
-          - ""
+          - "Inner"
         joinExpressions:
+        - - "\"sales\".\"STATE\" = \"sentiment\".\"STATE\""
+          - "sales_Inner_sentiment"
         columnMappings:
+        - - "sentiment.avg_sentiment_REVIEW"
+          - "avg_sentiment_REVIEW"
+        - - "sentiment.STATE"
+          - "sentiment_STATE"
+        - - "sales.sum_PRODUCT_PRICE"
+          - "sum_PRODUCT_PRICE"
+        - - "sales.count_TRANSACTION_ID"
+          - "count_TRANSACTION_ID"
+        - - "sales.STATE"
+          - "sales_STATE"
+        - - "sales.Rank"
+          - "Rank"
+    Cortex Completions:
+      type: "cortex-completions"
+      sources:
+      - "Join"
+      parameters:
+        componentName: "Cortex Completions"
+        model: "mistral-7b"
+        systemPrompt: "${pv_prompt}"
+        userPrompt: "You are an unofficial reviewer of the sales performance of fictional\
+          \ shoe company, Charlie's Shoe Emporium."
+        inputs:
+        temperature:
+        topP:
+        maxTokens:
+        includeInputColumns: "Yes"
+    Un-nest JSON:
+      type: "extract-nested-data-sf"
+      sources:
+      - "Cortex Completions"
+      parameters:
+        componentName: "Un-nest JSON"
+        includeInputColumns: "Yes"
+        columns:
+        - name: "created"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "created"
+          isArray: "false"
+          include: "false"
+        - name: "usage"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "usage"
+          isArray: "false"
+          include: "false"
+          childElements:
+          - name: "total_tokens"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "total_tokens"
+            isArray: "false"
+            include: "false"
+          - name: "prompt_tokens"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "prompt_tokens"
+            isArray: "false"
+            include: "false"
+          - name: "completion_tokens"
+            datatype: "NUMBER"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "completion_tokens"
+            isArray: "false"
+            include: "false"
+        - name: "model"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "model"
+          isArray: "false"
+          include: "false"
+        - name: "choices"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "completion_result"
+          aliasName: "choices"
+          isArray: "true"
+          include: "false"
+          childElements:
+          - name: "choices-element"
+            datatype: "VARIANT"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "completion_result"
+            aliasName: "choices-element"
+            isArray: "false"
+            include: "false"
+            childElements:
+            - name: "messages"
+              datatype: "VARCHAR"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "completion_result"
+              aliasName: "messages"
+              isArray: "false"
+              include: "true"
+        outerJoin: "No"
+        inputAlias: "i"
+        arrayPrefix: "f"
+        castingMethod: "Fail on invalid data"
+        caseColumnAliasNames: "No"
+    Write to CORTEX_STATE:
+      type: "rewrite-table"
+      sources:
+      - "Un-nest JSON"
+      parameters:
+        componentName: "Write to CORTEX_STATE"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "CORTEX_${pv_state}"
+        orderBy:
   variables:
     pv_state:
       metadata:
@@ -114,7 +242,7 @@ pipeline:
         description: ""
         scope: "SHARED"
         visibility: "PUBLIC"
-      defaultValue: "CO"
+      defaultValue: "FL"
     pv_prompt:
       metadata:
         type: "TEXT"
@@ -126,36 +254,51 @@ design:
   components:
     DIM_CHARLIES_SALES:
       position:
-        x: -20
+        x: -30
         "y": 120
       tempMetlId: 1
-    Cortex Sentiment:
+    Cortex Sentiment of Customer Reviews:
       position:
         x: 290
         "y": 120
       tempMetlId: 4
     Only Reviews in 2024:
       position:
-        x: 140
+        x: 130
         "y": 120
       tempMetlId: 5
-    Aggregate:
+    Average Sentiment Analysis:
       position:
-        x: 450
+        x: 460
         "y": 120
       tempMetlId: 6
     CHARLIES_SALES_SUMMARY_2024:
       position:
         x: 290
-        "y": 30
+        "y": 10
       tempMetlId: 7
-    Filter:
+    Only State:
       position:
-        x: 450
-        "y": 30
+        x: 460
+        "y": 10
       tempMetlId: 8
     Join:
       position:
         x: 630
         "y": 120
       tempMetlId: 9
+    Cortex Completions:
+      position:
+        x: 800
+        "y": 120
+      tempMetlId: 11
+    Un-nest JSON:
+      position:
+        x: 990
+        "y": 120
+      tempMetlId: 12
+    Write to CORTEX_STATE:
+      position:
+        x: 1180
+        "y": 120
+      tempMetlId: 13
