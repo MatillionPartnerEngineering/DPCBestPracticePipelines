@@ -1,0 +1,395 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Size Down Warehouse:
+      type: "alter-warehouse"
+      parameters:
+        componentName: "Size Down Warehouse"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "XSMALL"
+    Start 0:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Size Up Warehouse"
+      parameters:
+        componentName: "Start 0"
+    Extract Odds Data:
+      type: "unknown-orchestration"
+      parameters:
+        "1": "Extract Odds Data"
+        "2": "CollegeFootballData"
+        "3": "Production"
+        "4": "default"
+        "5": "${jv_profile}"
+        "6":
+        "7": ""
+        "8": ""
+        "9": ""
+        "10": ""
+        "11": "4"
+        "12":
+        "13":
+          "1":
+          - - "year"
+            - "${jv_year}"
+        "14":
+          "1":
+          - - "Authorization"
+            - "Bearer pQJWHv3l90s2Np4GFXx/vcvDiePoMzbDT79DYck0zsfWgK8auGkczIXJhNZYoVF8"
+        "15": ""
+        "16": ""
+        "17": ""
+        "18": ""
+        "22": "CollegeFootballData"
+        "113": "s3://mtln-kareyg/CFB_API/"
+        "114": "[Environment Default]"
+        "115": "[Environment Default]"
+        "116": "[Environment Default]"
+        "117": "cfb_${jv_profile}_${jv_year}"
+        "118": ""
+    Size Up Warehouse:
+      type: "alter-warehouse"
+      transitions:
+        unconditional:
+        - "Create Table 0"
+      parameters:
+        componentName: "Size Up Warehouse"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "XLARGE"
+    Grid Iterator 0:
+      type: "grid-iterator"
+      iterationTarget: "Extract Odds Data"
+      parameters:
+        componentName: "Grid Iterator 0"
+        gridVariable: "gv_cfb"
+        gridIteratorVariableMapping:
+        - - "gvc_profile"
+          - "jv_profile"
+        - - "gvc_year"
+          - "jv_year"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+    Create Table 0:
+      type: "create-table"
+      transitions:
+        unconditional:
+        - "S3 Load 0"
+        - "Python Script 0"
+      parameters:
+        componentName: "Create Table 0"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "cfbprofileyears"
+        tableType: "Permanent"
+        columns:
+        - - "profile"
+          - "VARCHAR"
+          - "17"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "year"
+          - "NUMBER"
+          - "5"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation: ""
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays: ""
+        comment: ""
+    S3 Load 0:
+      type: "s3-load"
+      transitions:
+        unconditional:
+        - "Query Result To Grid 0"
+      parameters:
+        componentName: "S3 Load 0"
+        stage: "[Custom]"
+        authentication: "Credentials"
+        s3ObjectPrefix: "s3://mtln-techworkshops/"
+        pattern: "CFB/SNFK/CFB_profileyears.csv"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "cfbprofileyears"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter: ""
+        fieldDelimiter: ""
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat: ""
+        timeFormat: ""
+        timestampFormat: ""
+        escape: ""
+        escapeUnenclosedField: ""
+        trimSpace: "False"
+        fieldOptionallyEnclosed: ""
+        nullIf:
+        - - ""
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "False"
+        replaceInvalidCharacters: "False"
+        encodingType: ""
+        onError: "Abort Statement"
+        sizeLimitB: ""
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    v2_grid_xform1:
+      type: "run-transformation"
+      transitions:
+        unconditional:
+        - "v2_grid_xform2"
+      parameters:
+        componentName: "v2_grid_xform1"
+        transformationJob: "deleteme/Tech Workshops/v2_grid/v2_grid_xform1"
+        setScalarVariables:
+        setGridVariables:
+    Query Result To Grid 0:
+      type: "query-to-grid"
+      transitions:
+        unconditional:
+        - "Grid Iterator 0"
+      parameters:
+        componentName: "Query Result To Grid 0"
+        mode: "Basic"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        table: "cfbprofileyears"
+        tableColumns:
+        - "profile"
+        - "year"
+        orderBy:
+        sort: "Ascending"
+        limit: "100"
+        gridVariable: "gv_cfb"
+        gridVariableMapping:
+        - - "profile"
+        - - "year"
+        filterConditions:
+        combineConditions: "AND"
+    SQL Script 0:
+      type: "sql-script"
+      parameters:
+        componentName: "SQL Script 0"
+        sqlScript: "${jv_sql}"
+    v2_grid_xform2:
+      type: "run-transformation"
+      transitions:
+        unconditional:
+        - "Size Down Warehouse"
+      parameters:
+        componentName: "v2_grid_xform2"
+        transformationJob: "deleteme/Tech Workshops/v2_grid/v2_grid_xform2"
+        setScalarVariables:
+        setGridVariables:
+    Python Script 0:
+      type: "python-script"
+      transitions:
+        unconditional:
+        - "Grid Iterator 1"
+      parameters:
+        componentName: "Python Script 0"
+        script: |-
+          import azuredevops
+
+
+
+          context.updateGridVariable('sql_scripts', [['copy from table'],['drop table']])
+        interpreter: "Python 3"
+        timeout: "360"
+    Grid Iterator 1:
+      type: "grid-iterator"
+      iterationTarget: "SQL Script 0"
+      parameters:
+        componentName: "Grid Iterator 1"
+        gridVariable: "sql_scripts"
+        gridIteratorVariableMapping:
+        - - "script"
+          - "jv_sql"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+  variables:
+    api_load_duration:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    jv_year:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "1900"
+    jv_profile:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "BettingLines"
+    jv_sql:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    gv_cfb:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          gvc_profile:
+            columnType: "TEXT"
+          gvc_year:
+            columnType: "TEXT"
+      defaultValue: []
+    CFB_grid:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          gv_profile_name:
+            columnType: "TEXT"
+          gv_year:
+            columnType: "TEXT"
+      defaultValue: []
+    years:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          year:
+            columnType: "TEXT"
+      defaultValue:
+      - - "2017"
+      - - "2018"
+      - - "2019"
+      - - "2020"
+      - - "2021"
+    sql_scripts:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          script:
+            columnType: "TEXT"
+      defaultValue:
+      - - "select * from table"
+      - - "copy from table"
+      - - "drop table"
+design:
+  components:
+    Size Down Warehouse:
+      position:
+        x: 304
+        "y": -16
+      tempMetlId: 71616
+    Start 0:
+      position:
+        x: -864
+        "y": -16
+      tempMetlId: 71618
+    Extract Odds Data:
+      position:
+        x: -176
+        "y": 16
+      tempMetlId: 71619
+    Size Up Warehouse:
+      position:
+        x: -736
+        "y": -16
+      tempMetlId: 71620
+    Grid Iterator 0:
+      position:
+        x: -176
+        "y": -16
+      tempMetlId: 71621
+    Create Table 0:
+      position:
+        x: -603
+        "y": -12
+      tempMetlId: 71622
+    S3 Load 0:
+      position:
+        x: -480
+        "y": -16
+      tempMetlId: 71623
+    v2_grid_xform1:
+      position:
+        x: -32
+        "y": -16
+      tempMetlId: 71624
+    Query Result To Grid 0:
+      position:
+        x: -336
+        "y": -16
+      tempMetlId: 71625
+    SQL Script 0:
+      position:
+        x: -336
+        "y": 96
+      tempMetlId: 71626
+    v2_grid_xform2:
+      position:
+        x: 112
+        "y": -16
+      tempMetlId: 71627
+    Python Script 0:
+      position:
+        x: -480
+        "y": 64
+      tempMetlId: 71628
+    Grid Iterator 1:
+      position:
+        x: -336
+        "y": 64
+      tempMetlId: 71629
+  notes:
+    "71617":
+      position:
+        x: -704
+        "y": -172
+      size:
+        height: 119
+        width: 586
+      theme: "green"
+      content: |-
+        **WHAT ARE WE TRYING TO SOLVE?**:
+        Find the biggest "upset" of the past five seasons of college football
+
+        upset (n) - an unexpected result or situation, especially in a sports competition
+
+        **HOW WE WILL SOLVE OUR BUSINESS PROBLEM**
+        Pull in betting data from API (predicted results) and compare to game scores (actual results)

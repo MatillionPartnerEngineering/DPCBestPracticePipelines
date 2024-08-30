@@ -1,0 +1,85 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Flatten Variant:
+      type: "flatten-variant"
+      sources:
+      - "cfb_player_stats"
+      parameters:
+        componentName: "Flatten Variant"
+        includeInputColumns: "No"
+        columnMapping:
+        - - "Data Value"
+          - "category"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "stat"
+          - "NUMBER"
+          - ""
+        - - "Data Value"
+          - "statType"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "team"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "player"
+          - "VARCHAR"
+          - ""
+        columnFlattens:
+    Create View:
+      type: "create-view"
+      sources:
+      - "Flatten Variant"
+      parameters:
+        componentName: "Create View"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        viewName: "cfb_stats_flat"
+        secureView: "No"
+        viewType: "Standard"
+    cfb_player_stats:
+      type: "table-input"
+      parameters:
+        componentName: "cfb_player_stats"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "cfb_player_stats"
+        columnNames:
+        - "Data Value"
+        timeOffset: ""
+design:
+  components:
+    Flatten Variant:
+      position:
+        x: 528
+        "y": 304
+      tempMetlId: 71494
+    Create View:
+      position:
+        x: 704
+        "y": 304
+      tempMetlId: 71495
+    cfb_player_stats:
+      position:
+        x: 336
+        "y": 307
+      tempMetlId: 71497
+  notes:
+    "71492":
+      position:
+        x: 320
+        "y": 196
+      size:
+        height: 71
+        width: 402
+      theme: "green"
+      content: |-
+        **PREP PLAYER DATA**
+
+        - Flatten from semistructured format using Snowflake Flatten Variant function
+        - Write to Snowflake View

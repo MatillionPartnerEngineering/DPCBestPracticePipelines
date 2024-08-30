@@ -1,0 +1,347 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Decades field:
+      type: "calculator"
+      sources:
+      - "Load Data from flights_raw"
+      parameters:
+        componentName: "Decades field"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "IFF(\"year\" between 1980 and 1989,1980,IFF(\"year\" between 1990 and\
+            \ 1999,1990,null))"
+          - "decade"
+    Filter 1980:
+      type: "filter"
+      sources:
+      - "Decades field"
+      parameters:
+        componentName: "Filter 1980"
+        filterConditions:
+        - - "actualelapsedtime"
+          - "Not"
+          - "Equal to"
+          - "NA"
+        - - "decade"
+          - "Is"
+          - "Equal to"
+          - "1980"
+        combineCondition: "AND"
+    Rewrite Table 0:
+      type: "rewrite-table"
+      sources:
+      - "Calculator 1"
+      parameters:
+        componentName: "Rewrite Table 0"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "flights_agg"
+    Load Data from flights_raw:
+      type: "table-input"
+      parameters:
+        componentName: "Load Data from flights_raw"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "${flights_80s90s}"
+        columnNames:
+        - "year"
+        - "month"
+        - "dayofmonth"
+        - "dayofweek"
+        - "deptime"
+        - "crsdeptime"
+        - "arrtime"
+        - "crsarrtime"
+        - "uniquecarrier"
+        - "flightnum"
+        - "tailnum"
+        - "actualelapsedtime"
+        - "crselapsedtime"
+        - "airtime"
+        - "arrdelay"
+        - "depdelay"
+        - "origin"
+        - "dest"
+        - "distance"
+        - "taxiin"
+        - "taxiout"
+        - "cancelled"
+        - "cancellationcode"
+        - "diverted"
+        - "carrierdelay"
+        - "weatherdelay"
+        - "nasdelay"
+        - "securitydelay"
+        - "lateaircraftdelay"
+        timeOffset: ""
+    Join 0:
+      type: "join"
+      sources:
+      - "Rename 1980"
+      - "Rename 1990"
+      parameters:
+        componentName: "Join 0"
+        mainTable: "Rename 1990"
+        mainTableAlias: "a"
+        joins:
+        - - "Rename 1980"
+          - "b"
+          - "Inner"
+        joinExpressions:
+        - - "\"a\".\"flight\"=\"b\".\"flight\""
+          - "a_Inner_b"
+        columnMappings:
+        - - "a.flight"
+          - "flight"
+        - - "b.count_1980"
+          - "count_1980"
+        - - "a.count_1990"
+          - "count_1990"
+        - - "b.avg_actualelapsedtime_1980"
+          - "avg_elapsedtime_1980"
+        - - "a.avg_actualelapsedtime_1990"
+          - "avg_elapsedtime_1990"
+    Calculator 1:
+      type: "calculator"
+      sources:
+      - "Join 0"
+      parameters:
+        componentName: "Calculator 1"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"count_1990\"-\"count_1980\""
+          - "diff_count"
+        - - "\"avg_elapsedtime_1990\"-\"avg_elapsedtime_1980\""
+          - "diff_avgelapsedtime"
+    Rename 1980:
+      type: "rename"
+      sources:
+      - "Calculator 1980"
+      parameters:
+        componentName: "Rename 1980"
+        columnMapping:
+        - - "flight_leg"
+          - "flight"
+        - - "count_year"
+          - "count_1980"
+        - - "avg_actualelapsedtime"
+          - "avg_actualelapsedtime_1980"
+    Rename 1990:
+      type: "rename"
+      sources:
+      - "Calculator 1990"
+      parameters:
+        componentName: "Rename 1990"
+        columnMapping:
+        - - "flight_leg"
+          - "flight"
+        - - "count_decade"
+          - "count_1990"
+        - - "avg_actualelapsedtime"
+          - "avg_actualelapsedtime_1990"
+    Aggregate 1980:
+      type: "aggregate"
+      sources:
+      - "Convert 1980"
+      parameters:
+        componentName: "Aggregate 1980"
+        groupings:
+        - "origin"
+        - "dest"
+        aggregations:
+        - - "year"
+          - "Count"
+        - - "actualelapsedtime"
+          - "Average"
+        groupingType: "Group By"
+    Calculator 1980:
+      type: "calculator"
+      sources:
+      - "Aggregate 1980"
+      parameters:
+        componentName: "Calculator 1980"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"origin\" || '-->' || \"dest\""
+          - "flight_leg"
+    Calculator 1990:
+      type: "calculator"
+      sources:
+      - "Aggregate 1990"
+      parameters:
+        componentName: "Calculator 1990"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"origin\" || '-->' || \"dest\""
+          - "flight_leg"
+    Convert 1980:
+      type: "convert-type"
+      sources:
+      - "Filter 1980"
+      parameters:
+        componentName: "Convert 1980"
+        conversions:
+        - - "actualelapsedtime"
+          - "NUMBER"
+          - ""
+          - ""
+    Convert 1990:
+      type: "convert-type"
+      sources:
+      - "Filter 1990"
+      parameters:
+        componentName: "Convert 1990"
+        conversions:
+        - - "actualelapsedtime"
+          - "NUMBER"
+          - ""
+          - ""
+    Aggregate 1990:
+      type: "aggregate"
+      sources:
+      - "Convert 1990"
+      parameters:
+        componentName: "Aggregate 1990"
+        groupings:
+        - "origin"
+        - "dest"
+        aggregations:
+        - - "decade"
+          - "Count"
+        - - "actualelapsedtime"
+          - "Average"
+        - - "cancelled"
+          - "Sum"
+        groupingType: "Group By"
+    Filter 1990:
+      type: "filter"
+      sources:
+      - "Decades field"
+      parameters:
+        componentName: "Filter 1990"
+        filterConditions:
+        - - "actualelapsedtime"
+          - "Not"
+          - "Equal to"
+          - "NA"
+        - - "decade"
+          - "Is"
+          - "Equal to"
+          - "1990"
+        combineCondition: "AND"
+  variables:
+    flights_80s90s:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "flights_raw"
+design:
+  components:
+    Decades field:
+      position:
+        x: 496
+        "y": 160
+      tempMetlId: 71380
+    Filter 1980:
+      position:
+        x: 624
+        "y": 112
+      tempMetlId: 71381
+    Rewrite Table 0:
+      position:
+        x: 1408
+        "y": 176
+      tempMetlId: 71382
+    Load Data from flights_raw:
+      position:
+        x: 368
+        "y": 160
+      tempMetlId: 71383
+    Join 0:
+      position:
+        x: 1184
+        "y": 176
+      tempMetlId: 71384
+    Calculator 1:
+      position:
+        x: 1296
+        "y": 176
+      tempMetlId: 71385
+    Rename 1980:
+      position:
+        x: 1072
+        "y": 112
+      tempMetlId: 71386
+    Rename 1990:
+      position:
+        x: 1072
+        "y": 240
+      tempMetlId: 71387
+    Aggregate 1980:
+      position:
+        x: 848
+        "y": 112
+      tempMetlId: 71388
+    Calculator 1980:
+      position:
+        x: 960
+        "y": 112
+      tempMetlId: 71389
+    Calculator 1990:
+      position:
+        x: 960
+        "y": 240
+      tempMetlId: 71390
+    Convert 1980:
+      position:
+        x: 736
+        "y": 112
+      tempMetlId: 71391
+    Convert 1990:
+      position:
+        x: 736
+        "y": 240
+      tempMetlId: 71392
+    Aggregate 1990:
+      position:
+        x: 848
+        "y": 240
+      tempMetlId: 71393
+    Filter 1990:
+      position:
+        x: 624
+        "y": 240
+      tempMetlId: 71395
+  notes:
+    "71378":
+      position:
+        x: 585
+        "y": 66
+      size:
+        height: 84
+        width: 544
+      theme: "yellow"
+      content: "**1980 DATA**"
+    "71379":
+      position:
+        x: 1157
+        "y": 132
+      size:
+        height: 93
+        width: 174
+      theme: "green"
+      content: "Join and Compare Data"
+    "71376":
+      position:
+        x: 581
+        "y": 198
+      size:
+        height: 91
+        width: 551
+      theme: "yellow"
+      content: "**1990 DATA**"

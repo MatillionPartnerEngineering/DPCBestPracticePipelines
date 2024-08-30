@@ -1,0 +1,88 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    PlayerStats:
+      type: "multi-table-input"
+      parameters:
+        componentName: "PlayerStats"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        patternType: "Like"
+        pattern: "cfb_PlayerStats_%"
+        castTypes: "False"
+        addSourceTable: "True"
+        columns:
+        - "Data Value"
+    Flatten Players:
+      type: "flatten-variant"
+      sources:
+      - "PlayerStats"
+      parameters:
+        componentName: "Flatten Players"
+        includeInputColumns: "Yes"
+        columnMapping:
+        - - "Data Value"
+          - "player"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "stat"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "statType"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "team"
+          - "VARCHAR"
+          - ""
+        - - "Data Value"
+          - "category"
+          - "VARCHAR"
+          - ""
+        columnFlattens:
+    Calculator 0:
+      type: "calculator"
+      sources:
+      - "Flatten Players"
+      parameters:
+        componentName: "Calculator 0"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "REGEXP_REPLACE(\"Source Table\", 'cfb_PlayerStats_','')"
+          - "Source Table"
+    Create View 0:
+      type: "create-view"
+      sources:
+      - "Calculator 0"
+      parameters:
+        componentName: "Create View 0"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        viewName: "cfb_stats_flat"
+        secureView: "No"
+        viewType: "Standard"
+design:
+  components:
+    PlayerStats:
+      position:
+        x: 64
+        "y": 32
+      tempMetlId: 71642
+    Flatten Players:
+      position:
+        x: 208
+        "y": 32
+      tempMetlId: 71643
+    Calculator 0:
+      position:
+        x: 355
+        "y": 37
+      tempMetlId: 71644
+    Create View 0:
+      position:
+        x: 496
+        "y": 32
+      tempMetlId: 71645

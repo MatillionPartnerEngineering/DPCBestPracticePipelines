@@ -1,0 +1,214 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    S3 Load 0:
+      type: "s3-load"
+      transitions:
+        unconditional:
+        - "And 0"
+      parameters:
+        componentName: "S3 Load 0"
+        stage: "[Custom]"
+        s3ObjectPrefix: "s3://mtln-kareyg-public/CFB/"
+        pattern: ".*"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "PlayerStats"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter: ""
+        fieldDelimiter: ""
+        skipHeader: "1"
+        skipBlankLines: "False"
+        dateFormat: ""
+        timeFormat: ""
+        timestampFormat: ""
+        escape: ""
+        escapeUnenclosedField: ""
+        trimSpace: "False"
+        fieldOptionallyEnclosed: ""
+        nullIf:
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        replaceInvalidCharacters: "False"
+        encodingType: ""
+        onError: "Abort Statement"
+        sizeLimitB: ""
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "True"
+    Start 0:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Alter Warehouse 0"
+      parameters:
+        componentName: "Start 0"
+    API Extract 0:
+      type: "unknown-orchestration"
+      transitions:
+        unconditional:
+        - "And 0"
+      parameters:
+        "1": "API Extract 0"
+        "2": "CFB"
+        "3": "Production"
+        "4": "default"
+        "5": "BettingOdds"
+        "6":
+        "7": ""
+        "8": ""
+        "9": ""
+        "11": "1"
+        "12":
+        "13":
+          "1":
+          - - "year"
+            - "2018"
+        "14":
+          "1":
+          - - "Authorization"
+            - "Bearer pQJWHv3l90s2Np4GFXx/vcvDiePoMzbDT79DYck0zsfWgK8auGkczIXJhNZYoVF8"
+        "15": ""
+        "113": "s3://c855sn8ed6oc70ujns90-customerbucket-65s2673o7hxx/"
+        "114": "[Environment Default]"
+        "115": "[Environment Default]"
+        "116": "[Environment Default]"
+        "117": "BettingOdds"
+        "118": ""
+    Alter Warehouse 0:
+      type: "alter-warehouse"
+      transitions:
+        unconditional:
+        - "Create Table 0"
+      parameters:
+        componentName: "Alter Warehouse 0"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "LARGE"
+    Transform 0:
+      type: "run-transformation"
+      parameters:
+        componentName: "Transform 0"
+        transformationJob: "deleteme/null"
+        setScalarVariables:
+        setGridVariables:
+    Create Table 0:
+      type: "create-table"
+      transitions:
+        unconditional:
+        - "S3 Load 0"
+        - "API Extract 0"
+      parameters:
+        componentName: "Create Table 0"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "PlayerStats"
+        tableType: "Permanent"
+        columns:
+        - - "category"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "conference"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "playerid"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "stat"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "stattype"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "team"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "player"
+          - "VARCHAR"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+        defaultDdlCollation: ""
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays: ""
+        comment: ""
+    And 0:
+      type: "and"
+      transitions:
+        unconditional:
+        - "Transform 0"
+      parameters:
+        componentName: "And 0"
+design:
+  components:
+    S3 Load 0:
+      position:
+        x: 64
+        "y": -16
+      tempMetlId: 71534
+    Start 0:
+      position:
+        x: -336
+        "y": -16
+      tempMetlId: 71535
+    API Extract 0:
+      position:
+        x: 66
+        "y": 79
+      tempMetlId: 71536
+    Alter Warehouse 0:
+      position:
+        x: -192
+        "y": -16
+      tempMetlId: 71537
+    Transform 0:
+      position:
+        x: 320
+        "y": -16
+      tempMetlId: 71538
+    Create Table 0:
+      position:
+        x: -64
+        "y": -16
+      tempMetlId: 71539
+    And 0:
+      position:
+        x: 192
+        "y": -16
+      tempMetlId: 71541

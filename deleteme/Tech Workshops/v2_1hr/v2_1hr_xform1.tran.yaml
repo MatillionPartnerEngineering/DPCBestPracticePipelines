@@ -1,0 +1,339 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Multi Table Input 0:
+      type: "multi-table-input"
+      parameters:
+        componentName: "Multi Table Input 0"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        patternType: "Like"
+        pattern: "%Odds%"
+        castTypes: "False"
+        addSourceTable: "False"
+        columns:
+        - "Data Value"
+    Filter 0:
+      type: "filter"
+      sources:
+      - "Rank 0"
+      parameters:
+        componentName: "Filter 0"
+        filterConditions:
+        - - "rn"
+          - "Is"
+          - "Equal to"
+          - "1"
+        combineCondition: "AND"
+    Extract Nested Data 0:
+      type: "extract-nested-data-sf"
+      sources:
+      - "Multi Table Input 0"
+      parameters:
+        componentName: "Extract Nested Data 0"
+        includeInputColumns: "No"
+        columns:
+        - name: "awayConference"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "awayConference"
+          isArray: "false"
+          include: "false"
+        - name: "awayScore"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "awayScore"
+          isArray: "false"
+          include: "true"
+        - name: "awayTeam"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "awayTeam"
+          isArray: "false"
+          include: "true"
+        - name: "homeConference"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "homeConference"
+          isArray: "false"
+          include: "false"
+        - name: "homeScore"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "homeScore"
+          isArray: "false"
+          include: "true"
+        - name: "homeTeam"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "homeTeam"
+          isArray: "false"
+          include: "true"
+        - name: "lines"
+          datatype: "VARIANT"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "lines"
+          isArray: "true"
+          include: "false"
+          childElements:
+          - name: "lines-element"
+            datatype: "VARIANT"
+            size: "0"
+            decimalPlaces: "0"
+            columnName: "Data Value"
+            aliasName: "lines-element"
+            isArray: "false"
+            include: "false"
+            childElements:
+            - name: "awayMoneyline"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "awayMoneyline"
+              isArray: "false"
+              include: "false"
+            - name: "provider"
+              datatype: "VARCHAR"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "provider"
+              isArray: "false"
+              include: "true"
+            - name: "spread"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "spread"
+              isArray: "false"
+              include: "true"
+            - name: "spreadOpen"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "spreadOpen"
+              isArray: "false"
+              include: "false"
+            - name: "overUnder"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "overUnder"
+              isArray: "false"
+              include: "false"
+            - name: "formattedSpread"
+              datatype: "VARCHAR"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "formattedSpread"
+              isArray: "false"
+              include: "true"
+            - name: "homeMoneyline"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "homeMoneyline"
+              isArray: "false"
+              include: "false"
+            - name: "overUnderOpen"
+              datatype: "VARIANT"
+              size: "0"
+              decimalPlaces: "0"
+              columnName: "Data Value"
+              aliasName: "overUnderOpen"
+              isArray: "false"
+              include: "true"
+        - name: "season"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "season"
+          isArray: "false"
+          include: "true"
+        - name: "week"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "week"
+          isArray: "false"
+          include: "false"
+        - name: "id"
+          datatype: "NUMBER"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "id"
+          isArray: "false"
+          include: "false"
+        - name: "seasonType"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "seasonType"
+          isArray: "false"
+          include: "false"
+        - name: "startDate"
+          datatype: "VARCHAR"
+          size: "0"
+          decimalPlaces: "0"
+          columnName: "Data Value"
+          aliasName: "startDate"
+          isArray: "false"
+          include: "false"
+        outerJoin: "False"
+        inputAlias: "i"
+        arrayPrefix: "f"
+    Calculator 0:
+      type: "calculator"
+      sources:
+      - "Filter 0"
+      parameters:
+        componentName: "Calculator 0"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "regexp_replace(\"formattedSpread\",'-.*','')"
+          - "projectedWinner"
+        - - "IFNULL(LTRIM(\"spread\",'- '),0)"
+          - "spread"
+        - - "CASE WHEN \"homeScore\" < \"awayScore\" THEN \"awayTeam\" ELSE \"homeTeam\"\
+            \ END"
+          - "actualWinner"
+        - - "ABS(\"awayScore\"-\"homeScore\")"
+          - "scoreDifference"
+    Rank 0:
+      type: "rank"
+      sources:
+      - "Extract Nested Data 0"
+      parameters:
+        componentName: "Rank 0"
+        includeInputColumns: "Yes"
+        partitionData:
+        - "awayTeam"
+        - "homeTeam"
+        - "season"
+        orderingWithinPartitions:
+        - - "awayTeam"
+          - "Asc"
+        - - "homeTeam"
+          - "Asc"
+        - - "season"
+          - "Asc"
+        functions:
+        - - "Row Number"
+          - "rn"
+    Rewrite Table 0:
+      type: "rewrite-table"
+      sources:
+      - "Calculator 1"
+      parameters:
+        componentName: "Rewrite Table 0"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "cfb_upset"
+        orderBy:
+    Calculator 1:
+      type: "calculator"
+      sources:
+      - "Calculator 0"
+      parameters:
+        componentName: "Calculator 1"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "CASE WHEN trim(\"projectedWinner\",' ') <> trim(\"actualWinner\",' ')\
+            \ THEN (\"spread\"+\"scoreDifference\") \nWHEN trim(\"projectedWinner\"\
+            ,' ') = trim(\"actualWinner\",' ') THEN ABS(\"scoreDifference\"-\"spread\"\
+            ) \nELSE 0 END "
+          - "pointDifferential"
+        - - "CASE WHEN trim(\"projectedWinner\",' ') <> trim(\"actualWinner\",' ')\
+            \ THEN 'upset' \nELSE 'expected winner won' END"
+          - "result"
+design:
+  components:
+    Multi Table Input 0:
+      position:
+        x: -64
+        "y": 48
+      tempMetlId: 71518
+    Filter 0:
+      position:
+        x: 390
+        "y": 52
+      tempMetlId: 71520
+    Extract Nested Data 0:
+      position:
+        x: 96
+        "y": 48
+      tempMetlId: 71521
+    Calculator 0:
+      position:
+        x: 512
+        "y": 48
+      tempMetlId: 71522
+    Rank 0:
+      position:
+        x: 240
+        "y": 46
+      tempMetlId: 71523
+    Rewrite Table 0:
+      position:
+        x: 816
+        "y": 48
+      tempMetlId: 71524
+    Calculator 1:
+      position:
+        x: 656
+        "y": 48
+      tempMetlId: 71525
+  notes:
+    "71519":
+      position:
+        x: 467
+        "y": -4
+      size:
+        height: 96
+        width: 245
+      theme: "yellow"
+      content: "Upset Logic"
+    "71516":
+      position:
+        x: 201
+        "y": -5
+      size:
+        height: 100
+        width: 228
+      theme: "green"
+      content: "Remove Duplicates"
+    "71517":
+      position:
+        x: 16
+        "y": -3
+      size:
+        height: 100
+        width: 150
+      theme: "green"
+      content: "Semistructured to Structured"

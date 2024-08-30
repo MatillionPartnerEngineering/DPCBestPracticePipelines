@@ -1,0 +1,428 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    "1990s":
+      type: "filter"
+      sources:
+      - "Add Decades Column"
+      parameters:
+        componentName: "1990s"
+        filterConditions:
+        - - "decades"
+          - "Is"
+          - "Equal to"
+          - "1990"
+        - - "actualeslapsedtime"
+          - "Not"
+          - "Null"
+          - ""
+        combineCondition: "AND"
+    Aggregate 1990:
+      type: "aggregate"
+      sources:
+      - "1990s"
+      parameters:
+        componentName: "Aggregate 1990"
+        groupings:
+        - "origin"
+        - "dest"
+        aggregations:
+        - - "year"
+          - "Count"
+        - - "actualeslapsedtime"
+          - "Average"
+        groupingType: "Group By"
+    Difference Columns:
+      type: "calculator"
+      sources:
+      - "Transformed Airports"
+      parameters:
+        componentName: "Difference Columns"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"count_1990\" - \"count_1980\""
+          - "diff_count"
+        - - "\"avg_1990\" - \"avg_1980\""
+          - "diff_time"
+    Write to flights_agg:
+      type: "table-output"
+      sources:
+      - "Difference Columns"
+      parameters:
+        componentName: "Write to flights_agg"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "flights_agg"
+        fixDataTypeMismatches: "No"
+        columnMapping:
+        - - "flight_leg"
+          - "flight_leg"
+        - - "origin_airport"
+          - "origin"
+        - - "destination_airport"
+          - "dest"
+        - - "count_1980"
+          - "count_flights_1980"
+        - - "avg_1980"
+          - "avg_elapsedflights_1980"
+        - - "count_1990"
+          - "count_flights_1990"
+        - - "avg_1990"
+          - "avg_elapsedflights_1990"
+        - - "diff_count"
+          - "diff_count"
+        - - "diff_time"
+          - "diff_avgelapsedtime"
+        orderBy:
+        outputMode: "Append"
+    Rename 1980:
+      type: "rename"
+      sources:
+      - "Calculator 1980"
+      parameters:
+        componentName: "Rename 1980"
+        columnMapping:
+        - - "origin"
+          - "origin"
+        - - "dest"
+          - "dest"
+        - - "count_year"
+          - "count_1980"
+        - - "avg_actualeslapsedtime"
+          - "avg_time_1980"
+        - - "flight_leg"
+          - "flight_leg"
+    Rename 1990:
+      type: "rename"
+      sources:
+      - "Calculator 1990"
+      parameters:
+        componentName: "Rename 1990"
+        columnMapping:
+        - - "origin"
+          - "origin"
+        - - "dest"
+          - "dest"
+        - - "count_year"
+          - "count_1990"
+        - - "avg_actualeslapsedtime"
+          - "avg_time_1990"
+        - - "flight_leg"
+          - "flight_leg"
+    matillion_stg_airports:
+      type: "table-input"
+      parameters:
+        componentName: "matillion_stg_airports"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "airports"
+        columnNames:
+        - "airport_data"
+        timeOffset: ""
+    Add Decades Column:
+      type: "calculator"
+      sources:
+      - "Copy of flights_raw"
+      parameters:
+        componentName: "Add Decades Column"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "IFF(\"year\" between 1980 and 1989,1980,IFF(\"year\" between 1990 and\
+            \ 1999,1990,null))"
+          - "decades"
+    Transformed Airports:
+      type: "join"
+      sources:
+      - "Joined Flights"
+      - "Flatten Airports"
+      parameters:
+        componentName: "Transformed Airports"
+        mainTable: "Joined Flights"
+        mainTableAlias: "flights"
+        joins:
+        - - "Flatten Airports"
+          - "origin"
+          - "Left"
+        - - "Flatten Airports"
+          - "destination"
+          - "Left"
+        joinExpressions:
+        - - "\"flights\".\"origin\" = \"origin\".\"iata\""
+          - "flights_Left_origin"
+        - - "\"flights\".\"dest\" = \"destination\".\"iata\""
+          - "flights_Left_destination"
+        columnMappings:
+        - - "flights.a_flight_leg"
+          - "flight_leg"
+        - - "origin.airport"
+          - "origin_airport"
+        - - "destination.airport"
+          - "destination_airport"
+        - - "flights.count_1990"
+          - "count_1990"
+        - - "flights.avg_1990"
+          - "avg_1990"
+        - - "flights.count_1980"
+          - "count_1980"
+        - - "flights.avg_1980"
+          - "avg_1980"
+    Flatten Airports:
+      type: "flatten-variant"
+      sources:
+      - "matillion_stg_airports"
+      parameters:
+        componentName: "Flatten Airports"
+        includeInputColumns: "No"
+        columnMapping:
+        - - "airport_data"
+          - "airport"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "iata"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "city"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "state"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "country"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "lat"
+          - "FLOAT"
+          - ""
+        - - "airport_data"
+          - "long"
+          - "FLOAT"
+          - ""
+        columnFlattens:
+    Aggregate 1980:
+      type: "aggregate"
+      sources:
+      - "1980s"
+      parameters:
+        componentName: "Aggregate 1980"
+        groupings:
+        - "origin"
+        - "dest"
+        aggregations:
+        - - "year"
+          - "Count"
+        - - "actualeslapsedtime"
+          - "Average"
+        groupingType: "Group By"
+    "1980s":
+      type: "filter"
+      sources:
+      - "Add Decades Column"
+      parameters:
+        componentName: "1980s"
+        filterConditions:
+        - - "decades"
+          - "Is"
+          - "Equal to"
+          - "1980"
+        - - "actualeslapsedtime"
+          - "Not"
+          - "Null"
+          - ""
+        combineCondition: "AND"
+    Copy of flights_raw:
+      type: "table-input"
+      parameters:
+        componentName: "Copy of flights_raw"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "raw_flights"
+        columnNames:
+        - "year"
+        - "month"
+        - "dayofmonth"
+        - "dayofweek"
+        - "deptime"
+        - "crsdeptime"
+        - "arrtime"
+        - "crsarrtime"
+        - "uniquecarrier"
+        - "flightnum"
+        - "tailnum"
+        - "actualeslapsedtime"
+        - "crselapsedtime"
+        - "airtime"
+        - "arrdelay"
+        - "depdelay"
+        - "origin"
+        - "dest"
+        - "distance"
+        - "taxiin"
+        - "taxiout"
+        - "cancelled"
+        - "cancellationcode"
+        - "diverted"
+        - "carrierdelay"
+        - "weatherdelay"
+        - "nasdelay"
+        - "securitydelay"
+        - "lateaircraftdelay"
+        timeOffset: ""
+    Calculator 1990:
+      type: "calculator"
+      sources:
+      - "Aggregate 1990"
+      parameters:
+        componentName: "Calculator 1990"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"origin\" || '-->' || \"dest\""
+          - "flight_leg"
+    Joined Flights:
+      type: "join"
+      sources:
+      - "Rename 1990"
+      - "Rename 1980"
+      parameters:
+        componentName: "Joined Flights"
+        mainTable: "Rename 1990"
+        mainTableAlias: "a"
+        joins:
+        - - "Rename 1980"
+          - "b"
+          - "Inner"
+        joinExpressions:
+        - - "\"a\".\"flight_leg\"=\"b\".\"flight_leg\""
+          - "a_Inner_b"
+        columnMappings:
+        - - "a.flight_leg"
+          - "a_flight_leg"
+        - - "a.count_1990"
+          - "count_1990"
+        - - "a.avg_time_1990"
+          - "avg_1990"
+        - - "b.count_1980"
+          - "count_1980"
+        - - "b.avg_time_1980"
+          - "avg_1980"
+        - - "a.origin"
+          - "origin"
+        - - "b.dest"
+          - "dest"
+    Calculator 1980:
+      type: "calculator"
+      sources:
+      - "Aggregate 1980"
+      parameters:
+        componentName: "Calculator 1980"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"origin\" || '-->' || \"dest\""
+          - "flight_leg"
+design:
+  components:
+    "1990s":
+      position:
+        x: 752
+        "y": 448
+      tempMetlId: 71240
+    Aggregate 1990:
+      position:
+        x: 896
+        "y": 448
+      tempMetlId: 71241
+    Difference Columns:
+      position:
+        x: 1712
+        "y": 448
+      tempMetlId: 71242
+    Write to flights_agg:
+      position:
+        x: 1904
+        "y": 448
+      tempMetlId: 71243
+    Rename 1980:
+      position:
+        x: 1158
+        "y": 340
+      tempMetlId: 71244
+    Rename 1990:
+      position:
+        x: 1152
+        "y": 448
+      tempMetlId: 71245
+    matillion_stg_airports:
+      position:
+        x: 1568
+        "y": 256
+      tempMetlId: 71246
+    Add Decades Column:
+      position:
+        x: 592
+        "y": 448
+      tempMetlId: 71247
+    Transformed Airports:
+      position:
+        x: 1568
+        "y": 448
+      tempMetlId: 71248
+    Flatten Airports:
+      position:
+        x: 1568
+        "y": 336
+      tempMetlId: 71249
+    Aggregate 1980:
+      position:
+        x: 896
+        "y": 336
+      tempMetlId: 71250
+    "1980s":
+      position:
+        x: 752
+        "y": 336
+      tempMetlId: 71296
+    Copy of flights_raw:
+      position:
+        x: 464
+        "y": 448
+      tempMetlId: 71297
+    Calculator 1990:
+      position:
+        x: 1024
+        "y": 448
+      tempMetlId: 71298
+    Joined Flights:
+      position:
+        x: 1344
+        "y": 448
+      tempMetlId: 71299
+    Calculator 1980:
+      position:
+        x: 1024
+        "y": 336
+      tempMetlId: 71300
+  notes:
+    "71239":
+      position:
+        x: 1485
+        "y": 199
+      size:
+        height: 295
+        width: 162
+      theme: "yellow"
+      content: "**ENRICH & JOIN AIRPORT DATA**"
+    "71238":
+      position:
+        x: 716
+        "y": 285
+      size:
+        height: 203
+        width: 485
+      theme: "green"
+      content: "**FILTER & AGGREGATE FLIGHT DATA**"

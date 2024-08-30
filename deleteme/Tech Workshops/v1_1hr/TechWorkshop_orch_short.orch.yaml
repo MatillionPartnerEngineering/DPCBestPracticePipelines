@@ -1,0 +1,447 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    And 0:
+      type: "and"
+      transitions:
+        unconditional:
+        - "TechWorkshop_transform_short"
+      parameters:
+        componentName: "And 0"
+    TechWorkshop_transform_short:
+      type: "run-transformation"
+      transitions:
+        unconditional:
+        - "Size Down"
+      parameters:
+        componentName: "TechWorkshop_transform_short"
+        transformationJob: "deleteme/Tech Workshops/v1_1hr/TechWorkshop_transform_short"
+        setScalarVariables:
+        setGridVariables:
+    Size Down:
+      type: "alter-warehouse"
+      parameters:
+        componentName: "Size Down"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "XSMALL"
+    raw_flights:
+      type: "create-table"
+      transitions:
+        success:
+        - "1990s Data"
+      parameters:
+        componentName: "raw_flights"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "raw_flights"
+        tableType: "Permanent"
+        columns:
+        - - "year"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "month"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "dayofmonth"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "dayofweek"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "deptime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "crsdeptime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "arrtime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "crsarrtime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "uniquecarrier"
+          - "VARCHAR"
+          - "256"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "flightnum"
+          - "VARCHAR"
+          - "256"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "tailnum"
+          - "VARCHAR"
+          - "256"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "actualeslapsedtime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "crselapsedtime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "airtime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "arrdelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "depdelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "origin"
+          - "VARCHAR"
+          - "256"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "dest"
+          - "VARCHAR"
+          - "256"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "distance"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "taxiin"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "taxiout"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "cancelled"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "cancellationcode"
+          - "VARCHAR"
+          - "256"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "diverted"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "carrierdelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "weatherdelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "nasdelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "securitydelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        - - "lateaircraftdelay"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "NO"
+          - "NO"
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays: ""
+        comment: ""
+    Start 0:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Size Up"
+      parameters:
+        componentName: "Start 0"
+    Size Up:
+      type: "alter-warehouse"
+      transitions:
+        success:
+        - "raw_flights"
+        - "airports"
+      parameters:
+        componentName: "Size Up"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "LARGE"
+    airports:
+      type: "create-table"
+      transitions:
+        success:
+        - "Load Airport Data"
+      parameters:
+        componentName: "airports"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "airports"
+        tableType: "Permanent"
+        columns:
+        - - "airport_data"
+          - "VARIANT"
+          - ""
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - "No"
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays: ""
+        comment: ""
+    Load Airport Data:
+      type: "s3-load"
+      transitions:
+        success:
+        - "And 0"
+      parameters:
+        componentName: "Load Airport Data"
+        stage: "[Custom]"
+        s3ObjectPrefix: "s3://matillion-public/"
+        pattern: "sample_jobs/airports.*"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "airports"
+        loadColumns:
+        - "airport_data"
+        format: "[Custom]"
+        fileType: "AVRO"
+        compression: "NONE"
+        onError: "Abort Statement"
+        sizeLimitB: ""
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "True"
+    "1990s Data":
+      type: "s3-load"
+      transitions:
+        success:
+        - "And 0"
+      parameters:
+        componentName: "1990s Data"
+        stage: "[Custom]"
+        s3ObjectPrefix: "s3://mtln-flight-data-us/"
+        pattern: "flights/199.*"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "raw_flights"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter: ""
+        fieldDelimiter: ""
+        skipHeader: "1"
+        dateFormat: ""
+        timeFormat: ""
+        timestampFormat: ""
+        escape: ""
+        escapeUnenclosedField: ""
+        trimSpace: "False"
+        fieldOptionallyEnclosed: ""
+        nullIf:
+        - - "NA"
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "True"
+        encodingType: ""
+        onError: "Abort Statement"
+        sizeLimitB: ""
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+  variables:
+    flights_80s90s:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "flights_raw"
+    flights_agg:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "flights_agg"
+    mysql_connection:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "jdbc:mysql://sa-mysql-5-7-26.cq5i4y35n9gg.eu-west-"
+design:
+  components:
+    And 0:
+      position:
+        x: 144
+        "y": 80
+      tempMetlId: 71356
+    TechWorkshop_transform_short:
+      position:
+        x: 272
+        "y": 80
+      tempMetlId: 71358
+    Size Down:
+      position:
+        x: 416
+        "y": 80
+      tempMetlId: 71359
+    raw_flights:
+      position:
+        x: -208
+        "y": 0
+      tempMetlId: 71360
+    Start 0:
+      position:
+        x: -448
+        "y": 0
+      tempMetlId: 71361
+    Size Up:
+      position:
+        x: -320
+        "y": 0
+      tempMetlId: 71362
+    airports:
+      position:
+        x: -208
+        "y": 80
+      tempMetlId: 71363
+    Load Airport Data:
+      position:
+        x: -32
+        "y": 80
+      tempMetlId: 71364
+    "1990s Data":
+      position:
+        x: -32
+        "y": 0
+      tempMetlId: 71365
+  notes:
+    "71357":
+      position:
+        x: -352
+        "y": -44
+      size:
+        height: 167
+        width: 197
+      theme: "yellow"
+      content: "**SNOWFLAKE SETUP**"
+    "71354":
+      position:
+        x: -97
+        "y": -45
+      size:
+        height: 170
+        width: 128
+      theme: "green"
+      content: "**LOAD DATA FROM S3**"

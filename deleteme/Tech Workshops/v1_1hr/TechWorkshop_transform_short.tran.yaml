@@ -1,0 +1,213 @@
+type: "transformation"
+version: "1.0"
+pipeline:
+  components:
+    Copy of flights_raw:
+      type: "table-input"
+      parameters:
+        componentName: "Copy of flights_raw"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "raw_flights"
+        columnNames:
+        - "year"
+        - "month"
+        - "dayofmonth"
+        - "dayofweek"
+        - "deptime"
+        - "crsdeptime"
+        - "arrtime"
+        - "crsarrtime"
+        - "uniquecarrier"
+        - "flightnum"
+        - "tailnum"
+        - "crselapsedtime"
+        - "airtime"
+        - "arrdelay"
+        - "depdelay"
+        - "origin"
+        - "dest"
+        - "distance"
+        - "taxiin"
+        - "taxiout"
+        - "cancelled"
+        - "cancellationcode"
+        - "diverted"
+        - "carrierdelay"
+        - "weatherdelay"
+        - "nasdelay"
+        - "securitydelay"
+        - "lateaircraftdelay"
+        - "actualeslapsedtime"
+        timeOffset: ""
+    Aggregate 1990:
+      type: "aggregate"
+      sources:
+      - "Copy of flights_raw"
+      parameters:
+        componentName: "Aggregate 1990"
+        groupings:
+        - "origin"
+        - "dest"
+        aggregations:
+        - - "year"
+          - "Count"
+        - - "actualeslapsedtime"
+          - "Average"
+        groupingType: "Group By"
+    Calculator 1990:
+      type: "calculator"
+      sources:
+      - "Aggregate 1990"
+      parameters:
+        componentName: "Calculator 1990"
+        includeInputColumns: "Yes"
+        calculations:
+        - - "\"origin\" || '-->' || \"dest\""
+          - "flight_leg"
+    Create View 0:
+      type: "create-view"
+      sources:
+      - "Join 1"
+      parameters:
+        componentName: "Create View 0"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        viewName: "flights_aggregate"
+        secureView: "No"
+        viewType: "Standard"
+    Load Airports Data:
+      type: "table-input"
+      parameters:
+        componentName: "Load Airports Data"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "airports"
+        columnNames:
+        - "airport_data"
+        timeOffset: ""
+    Flatten Variant:
+      type: "flatten-variant"
+      sources:
+      - "Load Airports Data"
+      parameters:
+        componentName: "Flatten Variant"
+        includeInputColumns: "No"
+        columnMapping:
+        - - "airport_data"
+          - "airport"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "iata"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "city"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "state"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "country"
+          - "VARCHAR"
+          - ""
+        - - "airport_data"
+          - "lat"
+          - "FLOAT"
+          - ""
+        - - "airport_data"
+          - "long"
+          - "FLOAT"
+          - ""
+        columnFlattens:
+    Join 1:
+      type: "join"
+      sources:
+      - "Calculator 1990"
+      - "Flatten Variant"
+      parameters:
+        componentName: "Join 1"
+        mainTable: "Calculator 1990"
+        mainTableAlias: "a"
+        joins:
+        - - "Flatten Variant"
+          - "b"
+          - "Left"
+        - - "Flatten Variant"
+          - "c"
+          - "Left"
+        joinExpressions:
+        - - "\"a\".\"origin\"=\"b\".\"iata\""
+          - "a_Left_b"
+        - - "\"a\".\"dest\" = \"c\".\"iata\""
+          - "a_Left_c"
+        columnMappings:
+        - - "a.flight_leg"
+          - "a_flight_leg"
+        - - "b.airport"
+          - "origin_airport"
+        - - "c.airport"
+          - "dest_airport"
+        - - "a.count_year"
+          - "count_1990"
+        - - "a.avg_actualeslapsedtime"
+          - "avg_1990"
+design:
+  components:
+    Copy of flights_raw:
+      position:
+        x: 512
+        "y": 448
+      tempMetlId: 71340
+    Aggregate 1990:
+      position:
+        x: 640
+        "y": 448
+      tempMetlId: 71342
+    Calculator 1990:
+      position:
+        x: 768
+        "y": 448
+      tempMetlId: 71343
+    Create View 0:
+      position:
+        x: 1024
+        "y": 448
+      tempMetlId: 71344
+    Load Airports Data:
+      position:
+        x: 896
+        "y": 240
+      tempMetlId: 71345
+    Flatten Variant:
+      position:
+        x: 896
+        "y": 336
+      tempMetlId: 71346
+    Join 1:
+      position:
+        x: 896
+        "y": 448
+      tempMetlId: 71347
+  notes:
+    "71338":
+      position:
+        x: 577
+        "y": 407
+      size:
+        height: 89
+        width: 262
+      theme: "green"
+      content: "**AGGREGATE FLIGHT DATA**"
+    "71341":
+      position:
+        x: 830
+        "y": 206
+      size:
+        height: 290
+        width: 134
+      theme: "yellow"
+      content: "**ENRICH & JOIN AIRPORT DATA**"

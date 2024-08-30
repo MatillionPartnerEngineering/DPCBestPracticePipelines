@@ -1,0 +1,559 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Or 0:
+      type: "or"
+      transitions:
+        unconditional:
+        - "Alter Warehouse 1"
+      parameters:
+        componentName: "Or 0"
+    Rollback 0:
+      type: "unknown-orchestration"
+      transitions:
+        success:
+        - "SNS Message 0"
+      parameters:
+        "1": "Rollback 0"
+    S3 Load into Table - 1990:
+      type: "s3-load"
+      transitions:
+        success:
+        - "And 0"
+      parameters:
+        componentName: "S3 Load into Table - 1990"
+        stage: "[Custom]"
+        s3ObjectPrefix: "s3://mtln-flight-data-us/"
+        pattern: "flights/199.*"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "${flights_80s90s}"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter: ""
+        fieldDelimiter: ","
+        skipHeader: "1"
+        dateFormat: ""
+        timeFormat: ""
+        timestampFormat: ""
+        escape: ""
+        escapeUnenclosedField: ""
+        trimSpace: "False"
+        fieldOptionallyEnclosed: "\""
+        nullIf:
+        - - ""
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "False"
+        encodingType: ""
+        onError: "Abort Statement"
+        sizeLimitB: ""
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    SNS Message 0:
+      type: "sns-message"
+      transitions:
+        unconditional:
+        - "Or 0"
+      parameters:
+        componentName: "SNS Message 0"
+        awsRegion: "eu-west-1"
+        topicName: "MatillionErrors"
+        subject: "AWS Notification Message"
+        message: "Project is burning down."
+    Retry 0:
+      type: "retry"
+      transitions:
+        success:
+        - "And 0"
+      iterationTarget: "S3 Load into Table - 1980"
+      parameters:
+        componentName: "Retry 0"
+        numberOfRetries: "1"
+        retryDelay: "Retry immediately"
+    Size Up Snowflake Warehouse:
+      type: "alter-warehouse"
+      transitions:
+        success:
+        - "Create 80s 90s Flights Table"
+      parameters:
+        componentName: "Size Up Snowflake Warehouse"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "LARGE"
+    TechWorkshop_Transform:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Or 0"
+        failure:
+        - "Rollback 0"
+      parameters:
+        componentName: "TechWorkshop_Transform"
+        transformationJob: "deleteme/null"
+        setScalarVariables:
+        setGridVariables:
+    Alter Warehouse 1:
+      type: "alter-warehouse"
+      parameters:
+        componentName: "Alter Warehouse 1"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "XSMALL"
+    Create flights_agg table:
+      type: "create-table"
+      transitions:
+        success:
+        - "And 0"
+      parameters:
+        componentName: "Create flights_agg table"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "${flights_agg}"
+        tableType: "Permanent"
+        columns:
+        - - "flight_leg"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "count_flights_1980"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "avg_elapsedflights_1980"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "count_flights_1990"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "avg_elapsedflights_1990"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "diff_count"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "diff_avgelapsedtime"
+          - "VARCHAR"
+          - "100"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays: ""
+        comment: ""
+    Create 80s 90s Flights Table:
+      type: "create-table"
+      transitions:
+        success:
+        - "S3 Load into Table - 1990"
+        - "Retry 0"
+        - "Create flights_agg table"
+      parameters:
+        componentName: "Create 80s 90s Flights Table"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "${flights_80s90s}"
+        tableType: "Permanent"
+        columns:
+        - - "year"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "month"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "dayofmonth"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "dayofweek"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "deptime"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "crsdeptime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "arrtime"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "crsarrtime"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "uniquecarrier"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "flightnum"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "tailnum"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "actualelapsedtime"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "crselapsedtime"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "airtime"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "arrdelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "depdelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "origin"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "dest"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "distance"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "taxiin"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "taxiout"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "cancelled"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "cancellationcode"
+          - "VARCHAR"
+          - "256"
+          - ""
+          - ""
+          - "No"
+          - "No"
+        - - "diverted"
+          - "NUMBER"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "carrierdelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "weatherdelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "nasdelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "securitydelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        - - "lateaircraftdelay"
+          - "VARCHAR"
+          - "10"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+        primaryKeys:
+        clusteringKeys:
+        dataRetentionTimeInDays: ""
+        comment: ""
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Size Up Snowflake Warehouse"
+      parameters:
+        componentName: "Start"
+    S3 Load into Table - 1980:
+      type: "s3-load"
+      parameters:
+        componentName: "S3 Load into Table - 1980"
+        stage: "[Custom]"
+        s3ObjectPrefix: "s3://mtln-flight-data-us/"
+        pattern: "flights/198.*"
+        encryption: "None"
+        warehouse: "[Environment Default]"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        targetTable: "${flights_80s90s}"
+        loadColumns:
+        format: "[Custom]"
+        fileType: "CSV"
+        compression: "AUTO"
+        recordDelimiter: ""
+        fieldDelimiter: ","
+        skipHeader: "1"
+        dateFormat: ""
+        timeFormat: ""
+        timestampFormat: ""
+        escape: ""
+        escapeUnenclosedField: ""
+        trimSpace: "False"
+        fieldOptionallyEnclosed: "\""
+        nullIf:
+        - - ""
+        errorOnColumnCountMismatch: "False"
+        emptyFieldAsNull: "False"
+        encodingType: ""
+        onError: "Abort Statement"
+        sizeLimitB: ""
+        purgeFiles: "False"
+        truncateColumns: "False"
+        forceLoad: "False"
+    And 0:
+      type: "and"
+      transitions:
+        unconditional:
+        - "TechWorkshop_Transform"
+      parameters:
+        componentName: "And 0"
+  variables:
+    flights_80s90s:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "flights_raw"
+    flights_agg:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "flights_agg"
+design:
+  components:
+    Or 0:
+      position:
+        x: 1040
+        "y": 0
+      tempMetlId: 71436
+    Rollback 0:
+      position:
+        x: 848
+        "y": -64
+      tempMetlId: 71438
+    S3 Load into Table - 1990:
+      position:
+        x: 400
+        "y": 0
+      tempMetlId: 71439
+    SNS Message 0:
+      position:
+        x: 960
+        "y": -64
+      tempMetlId: 71440
+    Retry 0:
+      position:
+        x: 400
+        "y": -112
+      tempMetlId: 71441
+    Size Up Snowflake Warehouse:
+      position:
+        x: 48
+        "y": 0
+      tempMetlId: 71442
+    TechWorkshop_Transform:
+      position:
+        x: 704
+        "y": 0
+      tempMetlId: 71443
+    Alter Warehouse 1:
+      position:
+        x: 1136
+        "y": 0
+      tempMetlId: 71444
+    Create flights_agg table:
+      position:
+        x: 400
+        "y": 96
+      tempMetlId: 71445
+    Create 80s 90s Flights Table:
+      position:
+        x: 208
+        "y": 0
+      tempMetlId: 71446
+    Start:
+      position:
+        x: -96
+        "y": 0
+      tempMetlId: 71447
+    S3 Load into Table - 1980:
+      position:
+        x: 400
+        "y": -80
+      tempMetlId: 71448
+    And 0:
+      position:
+        x: 576
+        "y": 0
+      tempMetlId: 71449
+  notes:
+    "71437":
+      position:
+        x: 792
+        "y": -104
+      size:
+        height: 149
+        width: 278
+      theme: "red"
+      content: "Error Handling"
+    "71435":
+      position:
+        x: 334
+        "y": -144
+      size:
+        height: 191
+        width: 266
+      theme: "yellow"
+      content: "Load Data from S3"
+    "71434":
+      position:
+        x: -121
+        "y": -49
+      size:
+        height: 107
+        width: 402
+      theme: "green"
+      content: "Size up Snowflake Warehouse and Create Tables"

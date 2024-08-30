@@ -1,0 +1,427 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Size Down Warehouse:
+      type: "alter-warehouse"
+      parameters:
+        componentName: "Size Down Warehouse"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "XSMALL"
+    Email Notification:
+      type: "unknown-orchestration"
+      transitions:
+        unconditional:
+        - "Or 0"
+      parameters:
+        "1": "Email Notification"
+        "2": |-
+          import my_email_sender as sender
+
+          sender.send_email(
+            email_address='datadingos@matillion.com'
+            subject = 'Well hello there.'
+            body = 'Hello, the API is moving a tad slow today. Operation took ${api_load_duration} seconds.'
+            )
+        "3": "Jython"
+        "4": "360"
+    Flatten Stats:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Transform & Join"
+      parameters:
+        componentName: "Flatten Stats"
+        transformationJob: "deleteme/Tech Workshops/v2/v2_transform_1"
+        setScalarVariables:
+        setGridVariables:
+    If Duration > 60:
+      type: "if"
+      transitions:
+        "true":
+        - "Flatten Stats"
+        "false":
+        - "Email Notification"
+      parameters:
+        componentName: "If Duration > 60"
+        mode: "Simple"
+        condition:
+        - - "api_load_duration"
+          - "Is"
+          - "Greater than or equal to"
+          - "60"
+        combineConditions: "And"
+    End Failure:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure"
+    Or 0:
+      type: "or"
+      transitions:
+        unconditional:
+        - "End Failure"
+      parameters:
+        componentName: "Or 0"
+    Extract Player Stat Data:
+      type: "unknown-orchestration"
+      transitions:
+        success:
+        - "xform_deleteme"
+        unconditional:
+        - "Extract Odds Data"
+      parameters:
+        "1": "Extract Player Stat Data"
+        "2": "CollegeFootballData"
+        "3": "Production"
+        "4": "default"
+        "5": "PlayerStats"
+        "6":
+        "7": ""
+        "8": ""
+        "9": ""
+        "10": ""
+        "11": "1"
+        "12":
+        "13":
+          "1":
+          - - "year"
+            - "2023"
+        "14":
+          "1":
+          - - "Authorization"
+            - "Bearer pQJWHv3l90s2Np4GFXx/vcvDiePoMzbDT79DYck0zsfWgK8auGkczIXJhNZYoVF8"
+        "15": ""
+        "16": ""
+        "17": ""
+        "18": ""
+        "22":
+        - "1":
+          - - "CollegeFootballData"
+            - "CollegeFootballData"
+        - "1":
+          - - "CollegeFootballData"
+        "113": "s3://mtln-kareyg/CFB_API/"
+        "114": "[Environment Default]"
+        "115": "[Environment Default]"
+        "116": "[Environment Default]"
+        "117": "cfb_player_stats_2023"
+        "118": ""
+    Size Up Warehouse:
+      type: "alter-warehouse"
+      transitions:
+        unconditional:
+        - "Create cfb_upset"
+      parameters:
+        componentName: "Size Up Warehouse"
+        warehouse: "[Environment Default]"
+        commandType: "Set"
+        properties:
+        - - "WAREHOUSE_SIZE"
+          - "XLARGE"
+    Create cfb_upset:
+      type: "create-table"
+      transitions:
+        success:
+        - "Extract Player Stat Data"
+      parameters:
+        componentName: "Create cfb_upset"
+        createReplace: "Replace"
+        database: "[Environment Default]"
+        schema: "[Environment Default]"
+        newTableName: "cfb_upset"
+        tableType: "Permanent"
+        columns:
+        - - "actualWinner"
+          - "VARCHAR"
+          - "16777216"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "projectedWinner"
+          - "VARCHAR"
+          - "16777216"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "pointDifferential"
+          - "NUMBER"
+          - "38"
+          - "1"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "result"
+          - "VARCHAR"
+          - "16777216"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "awayTeam"
+          - "VARCHAR"
+          - "16777216"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "awayScore"
+          - "NUMBER"
+          - "38"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "awayTeamQB"
+          - "VARCHAR"
+          - "16777216"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "homeTeam"
+          - "VARCHAR"
+          - "16777216"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "homeScore"
+          - "NUMBER"
+          - "38"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "homeTeamQB"
+          - "VARCHAR"
+          - "16777216"
+          - ""
+          - ""
+          - "No"
+          - "No"
+          - ""
+        - - "formattedSpread"
+          - "VARCHAR"
+          - "16777216"
+          - "0"
+          - ""
+          - "No"
+          - "No"
+          - ""
+        defaultDdlCollation: ""
+        primaryKeys:
+        clusteringKeys:
+        - "result"
+        dataRetentionTimeInDays: ""
+        comment: ""
+    Extract Odds Data:
+      type: "unknown-orchestration"
+      transitions:
+        success:
+        - "Copy of xform_deleteme"
+        unconditional:
+        - "If Duration > 60"
+      parameters:
+        "1": "Extract Odds Data"
+        "2": "CollegeFootballData"
+        "3": "Production"
+        "4": "default"
+        "5": "BettingLines"
+        "6":
+        "7": ""
+        "8": ""
+        "9": ""
+        "10": ""
+        "11": "4"
+        "12":
+        "13":
+          "1":
+          - - "year"
+            - "2023"
+        "14":
+          "1":
+          - - "Authorization"
+            - "Bearer pQJWHv3l90s2Np4GFXx/vcvDiePoMzbDT79DYck0zsfWgK8auGkczIXJhNZYoVF8"
+        "15": ""
+        "16": ""
+        "17": ""
+        "18": ""
+        "22": "CollegeFootballData"
+        "113": "s3://mtln-kareyg/CFB_API/"
+        "114": "[Environment Default]"
+        "115": "[Environment Default]"
+        "116": "[Environment Default]"
+        "117": "cfb_odds_2023"
+        "118": ""
+    Start 0:
+      type: "start"
+      transitions:
+        unconditional:
+        - "Size Up Warehouse"
+      parameters:
+        componentName: "Start 0"
+    Transform & Join:
+      type: "run-transformation"
+      transitions:
+        success:
+        - "Size Down Warehouse"
+        failure:
+        - "Or 0"
+      parameters:
+        componentName: "Transform & Join"
+        transformationJob: "deleteme/Tech Workshops/v2/v2_transform_2"
+        setScalarVariables:
+        setGridVariables:
+    xform_deleteme:
+      type: "run-transformation"
+      parameters:
+        componentName: "xform_deleteme"
+        transformationJob: "deleteme/Tech Workshops/v2/xform_deleteme"
+        setScalarVariables:
+        setGridVariables:
+    Copy of xform_deleteme:
+      type: "run-transformation"
+      parameters:
+        componentName: "Copy of xform_deleteme"
+        transformationJob: "deleteme/Tech Workshops/v2/xform_deleteme"
+        setScalarVariables:
+        setGridVariables:
+  variables:
+    api_load_duration:
+      metadata:
+        type: "NUMBER"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: ""
+    years:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "COPIED"
+        visibility: "PUBLIC"
+        columns:
+          year:
+            columnType: "TEXT"
+      defaultValue: []
+design:
+  components:
+    Size Down Warehouse:
+      position:
+        x: 384
+        "y": -16
+      tempMetlId: 71420
+    Email Notification:
+      position:
+        x: 96
+        "y": -112
+      tempMetlId: 71421
+    Flatten Stats:
+      position:
+        x: 100
+        "y": -12
+      tempMetlId: 71422
+    If Duration > 60:
+      position:
+        x: -64
+        "y": -112
+      tempMetlId: 71423
+    End Failure:
+      position:
+        x: 384
+        "y": -112
+      tempMetlId: 71451
+    Or 0:
+      position:
+        x: 240
+        "y": -112
+      tempMetlId: 71452
+    Extract Player Stat Data:
+      position:
+        x: -224
+        "y": -16
+      tempMetlId: 71453
+    Size Up Warehouse:
+      position:
+        x: -544
+        "y": -16
+      tempMetlId: 71454
+    Create cfb_upset:
+      position:
+        x: -384
+        "y": -16
+      tempMetlId: 71455
+    Extract Odds Data:
+      position:
+        x: -64
+        "y": -16
+      tempMetlId: 71456
+    Start 0:
+      position:
+        x: -688
+        "y": -16
+      tempMetlId: 71457
+    Transform & Join:
+      position:
+        x: 240
+        "y": -16
+      tempMetlId: 71459
+    xform_deleteme:
+      position:
+        x: -175
+        "y": 68
+      tempMetlId: 1635211
+    Copy of xform_deleteme:
+      position:
+        x: -16
+        "y": 64
+      tempMetlId: 1639942
+  notes:
+    "71416":
+      position:
+        x: 41
+        "y": -152
+      size:
+        height: 80
+        width: 400
+      theme: "red"
+      content: "**Failure Path**"
+    "71419":
+      position:
+        x: -704
+        "y": -172
+      size:
+        height: 119
+        width: 586
+      theme: "green"
+      content: |-
+        **WHAT ARE WE TRYING TO SOLVE?**:
+        Find the biggest "upset" of the 2018 college football season
+
+        upset (n) - an unexpected result or situation, especially in a sports competition
+
+        **HOW WE WILL SOLVE OUR BUSINESS PROBLEM**
+        Pull in betting data from API (predicted results) and compare to game scores (actual results), AND include the respective teams' quarterback.
+    "71418":
+      position:
+        x: 41
+        "y": -52
+      size:
+        height: 78
+        width: 401
+      theme: "green"
+      content: "**Success Path**"
