@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "Run Olympic Data - Extract Load"
+      skipped: false
       parameters:
         componentName: "Start"
     Run Olympic Data - Extract Load:
@@ -14,6 +15,7 @@ pipeline:
       transitions:
         success:
         - "Run Olympic Data - Transform"
+      skipped: false
       parameters:
         componentName: "Run Olympic Data - Extract Load"
         orchestrationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Extract\
@@ -25,6 +27,7 @@ pipeline:
       transitions:
         success:
         - "Run Olympic Data - Utilize Amazon Bedrock"
+      skipped: false
       parameters:
         componentName: "Run Olympic Data - Transform"
         transformationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Transform"
@@ -35,6 +38,7 @@ pipeline:
       transitions:
         success:
         - "Run Olympic Data - Utilize OpenAI"
+      skipped: false
       parameters:
         componentName: "Run Olympic Data - Utilize Amazon Bedrock"
         orchestrationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Utilize\
@@ -43,6 +47,7 @@ pipeline:
         setGridVariables:
     Run Olympic Data - Utilize OpenAI:
       type: "run-orchestration"
+      skipped: false
       parameters:
         componentName: "Run Olympic Data - Utilize OpenAI"
         orchestrationJob: "AI/Olympic Athlete Data Analysis/Olympic Data - Utilize\

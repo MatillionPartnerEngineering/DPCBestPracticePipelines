@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "Build State-Specific Model"
+      skipped: false
       parameters:
         componentName: "Start"
     If CO:
@@ -16,6 +17,7 @@ pipeline:
         - "Append To Grid CO"
         "false":
         - "If FL"
+      skipped: false
       parameters:
         componentName: "If CO"
         mode: "Simple"
@@ -32,6 +34,7 @@ pipeline:
         - "Append To Grid FL"
         "false":
         - "If OR"
+      skipped: false
       parameters:
         componentName: "If FL"
         mode: "Simple"
@@ -46,6 +49,7 @@ pipeline:
       transitions:
         "true":
         - "Append To Grid OR"
+      skipped: false
       parameters:
         componentName: "If OR"
         mode: "Simple"
@@ -60,6 +64,7 @@ pipeline:
       transitions:
         success:
         - "Or"
+      skipped: false
       parameters:
         componentName: "Append To Grid CO"
         operation: "Append"
@@ -85,10 +90,12 @@ pipeline:
       transitions:
         unconditional:
         - "Grid Iterator"
+      skipped: false
       parameters:
         componentName: "Or"
     Run Cortex Reporting:
       type: "run-transformation"
+      skipped: false
       parameters:
         componentName: "Run Cortex Reporting"
         transformationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
@@ -104,6 +111,7 @@ pipeline:
       transitions:
         success:
         - "Or"
+      skipped: false
       parameters:
         componentName: "Append To Grid FL"
         operation: "Append"
@@ -128,6 +136,7 @@ pipeline:
       transitions:
         success:
         - "Or"
+      skipped: false
       parameters:
         componentName: "Append To Grid OR"
         operation: "Append"
@@ -154,6 +163,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "Query Result To Scalar - Sales Summary"
         mode: "Basic"
@@ -188,6 +198,7 @@ pipeline:
       transitions:
         success:
         - "If CO"
+      skipped: false
       parameters:
         componentName: "Build State-Specific Model"
         command: "dbt run --select DIM_CHARLIES_SALES_${pv_state}"
@@ -213,6 +224,7 @@ pipeline:
         - "Query Result To Scalar - Sales 2024"
         - "Query Result To Scalar - Cortex Output"
       iterationTarget: "Run Cortex Reporting"
+      skipped: false
       parameters:
         componentName: "Grid Iterator"
         gridVariable: "gv_prompt_email_details"
@@ -228,6 +240,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "Query Result To Scalar - Sales 2024"
         mode: "Basic"
@@ -259,6 +272,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "Query Result To Scalar - Cortex Output"
         mode: "Basic"
@@ -280,12 +294,14 @@ pipeline:
       transitions:
         unconditional:
         - "Grid Iterator 2"
+      skipped: false
       parameters:
         componentName: "And"
-    Send dbt Test Failure Email:
+    Send dbt Reporting Email:
       type: "send-email"
+      skipped: false
       parameters:
-        componentName: "Send dbt Test Failure Email"
+        componentName: "Send dbt Reporting Email"
         toRecipients:
         - - "${email_to_recipients}"
         ccRecipients:
@@ -318,7 +334,8 @@ pipeline:
         enableStarttls: "No"
     Grid Iterator 2:
       type: "grid-iterator"
-      iterationTarget: "Send dbt Test Failure Email"
+      iterationTarget: "Send dbt Reporting Email"
+      skipped: false
       parameters:
         componentName: "Grid Iterator 2"
         gridVariable: "gv_prompt_email_details"
@@ -518,7 +535,7 @@ design:
         x: 940
         "y": 90
       tempMetlId: 18
-    Send dbt Test Failure Email:
+    Send dbt Reporting Email:
       position:
         x: 1080
         "y": 80

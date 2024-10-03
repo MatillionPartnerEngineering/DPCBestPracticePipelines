@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "Run Lacing Up Getting Started with Matillion and dbt"
+      skipped: false
       parameters:
         componentName: "Start"
     Run Lacing Up Getting Started with Matillion and dbt:
@@ -14,6 +15,7 @@ pipeline:
       transitions:
         success:
         - "Run Hitting the Ground Running"
+      skipped: false
       parameters:
         componentName: "Run Lacing Up Getting Started with Matillion and dbt"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/1-Lacing\
@@ -25,6 +27,7 @@ pipeline:
       transitions:
         success:
         - "Run Crossing the Finish Line"
+      skipped: false
       parameters:
         componentName: "Run Hitting the Ground Running"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/2-Hitting\
@@ -33,6 +36,7 @@ pipeline:
         setGridVariables:
     Run Crossing the Finish Line:
       type: "run-orchestration"
+      skipped: false
       parameters:
         componentName: "Run Crossing the Finish Line"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\

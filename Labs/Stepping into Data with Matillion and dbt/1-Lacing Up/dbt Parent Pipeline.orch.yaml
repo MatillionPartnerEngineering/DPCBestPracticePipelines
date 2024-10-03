@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "Run load charlies_shoe_emporium data"
+      skipped: false
       parameters:
         componentName: "Start"
     Run load charlies_shoe_emporium data:
@@ -14,6 +15,7 @@ pipeline:
       transitions:
         success:
         - "Run Lacing Up Getting Started with Matillion and dbt"
+      skipped: false
       parameters:
         componentName: "Run load charlies_shoe_emporium data"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/0-Load Data/load\
@@ -22,6 +24,7 @@ pipeline:
         setGridVariables:
     Run Lacing Up Getting Started with Matillion and dbt:
       type: "run-orchestration"
+      skipped: false
       parameters:
         componentName: "Run Lacing Up Getting Started with Matillion and dbt"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/1-Lacing\
@@ -42,6 +45,6 @@ design:
       tempMetlId: 2
     Run Lacing Up Getting Started with Matillion and dbt:
       position:
-        x: 330
+        x: 390
         "y": 0
       tempMetlId: 3

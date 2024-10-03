@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "Append To Grid"
+      skipped: false
       parameters:
         componentName: "Start"
     dbt build:
@@ -14,6 +15,7 @@ pipeline:
       transitions:
         success:
         - "Grid Iterator 2"
+      skipped: false
       parameters:
         componentName: "dbt build"
         command: "dbt build --select 3a-crossing-finish-line"
@@ -34,6 +36,7 @@ pipeline:
       transitions:
         success:
         - "dbt build"
+      skipped: false
       parameters:
         componentName: "Load FL CO and OR Charlies Sales Data"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
@@ -52,6 +55,7 @@ pipeline:
       transitions:
         success:
         - "Load FL CO and OR Charlies Sales Data"
+      skipped: false
       parameters:
         componentName: "Append To Grid"
         operation: "Append"
@@ -62,6 +66,7 @@ pipeline:
         - - "FL"
     Run Regional Models AI Reporting:
       type: "run-orchestration"
+      skipped: false
       parameters:
         componentName: "Run Regional Models AI Reporting"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/3-Crossing\
@@ -73,6 +78,7 @@ pipeline:
     Grid Iterator 2:
       type: "grid-iterator"
       iterationTarget: "Run Regional Models AI Reporting"
+      skipped: false
       parameters:
         componentName: "Grid Iterator 2"
         gridVariable: "gv_state_list"
@@ -98,7 +104,8 @@ pipeline:
         columns:
           gvc_state_list:
             columnType: "TEXT"
-      defaultValue: []
+      defaultValue:
+      - - "Default"
 design:
   components:
     Start:
@@ -131,18 +138,3 @@ design:
         x: 440
         "y": 0
       tempMetlId: 9
-  notes:
-    "1":
-      position:
-        x: -100
-        "y": -140
-      size:
-        height: 128
-        width: 300
-      theme: "white"
-      content: |-
-        - Incremental loading
-        - Grid variables
-        - Cortex
-        - dbt docs
-        - output components

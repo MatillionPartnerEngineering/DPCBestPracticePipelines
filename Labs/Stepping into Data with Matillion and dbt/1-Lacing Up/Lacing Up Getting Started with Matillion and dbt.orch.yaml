@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "dbt debug"
+      skipped: false
       parameters:
         componentName: "Start"
     dbt debug:
@@ -14,6 +15,7 @@ pipeline:
       transitions:
         success:
         - "dbt run"
+      skipped: false
       parameters:
         componentName: "dbt debug"
         command: "dbt debug"
@@ -31,6 +33,7 @@ pipeline:
         profileConfig:
     dbt run:
       type: "commands-for-dbt-core"
+      skipped: false
       parameters:
         componentName: "dbt run"
         command: "dbt run"

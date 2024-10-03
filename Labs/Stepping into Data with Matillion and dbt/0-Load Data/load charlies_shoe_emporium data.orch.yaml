@@ -9,6 +9,7 @@ pipeline:
         - "Create Table charlies_shoe_emporium_shoe_specifications"
         - "Create Table charlies_shoe_emporium_store_locations"
         - "Create Table charlies_shoe_emporium_sales"
+      skipped: false
       parameters:
         componentName: "Start"
     S3 Load charlies_shoe_emporium_sales:
@@ -16,6 +17,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_sales"
         stage: "[Custom]"
@@ -57,6 +59,7 @@ pipeline:
       transitions:
         success:
         - "S3 Load charlies_shoe_emporium_sales"
+      skipped: false
       parameters:
         componentName: "Create Table charlies_shoe_emporium_sales"
         createReplace: "Replace"
@@ -147,6 +150,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_shoe_specifications"
         stage: "[Custom]"
@@ -188,6 +192,7 @@ pipeline:
       transitions:
         success:
         - "S3 Load charlies_shoe_emporium_shoe_specifications"
+      skipped: false
       parameters:
         componentName: "Create Table charlies_shoe_emporium_shoe_specifications"
         createReplace: "Replace"
@@ -278,6 +283,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_store_locations"
         stage: "[Custom]"
@@ -319,6 +325,7 @@ pipeline:
       transitions:
         success:
         - "S3 Load charlies_shoe_emporium_store_locations"
+      skipped: false
       parameters:
         componentName: "Create Table charlies_shoe_emporium_store_locations"
         createReplace: "Replace"
@@ -353,6 +360,7 @@ pipeline:
       transitions:
         success:
         - "Run charlie FL incremental load xform"
+      skipped: false
       parameters:
         componentName: "Get Today Date - 5 days"
         externalAccessIntegrations:
@@ -383,10 +391,12 @@ pipeline:
       transitions:
         unconditional:
         - "Get Today Date - 5 days"
+      skipped: false
       parameters:
         componentName: "And"
     Run charlie FL incremental load xform:
       type: "run-transformation"
+      skipped: false
       parameters:
         componentName: "Run charlie FL incremental load xform"
         transformationJob: "Labs/Stepping into Data with Matillion and dbt/0-Load\

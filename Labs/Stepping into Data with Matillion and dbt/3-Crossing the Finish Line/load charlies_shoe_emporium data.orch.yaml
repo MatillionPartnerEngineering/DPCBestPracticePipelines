@@ -10,10 +10,12 @@ pipeline:
         - "Create Table charlies_shoe_emporium_shoe_specifications"
         - "Create Table charlies_shoe_emporium_sales"
         - "Create Table charlies_shoe_emporium_store_locations"
+      skipped: false
       parameters:
         componentName: "Start"
     S3 Load charlies_shoe_emporium_sales:
       type: "s3-load"
+      skipped: false
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_sales"
         stage: "[Custom]"
@@ -55,6 +57,7 @@ pipeline:
       transitions:
         success:
         - "Grid Iterator 4"
+      skipped: false
       parameters:
         componentName: "Create Table charlies_shoe_emporium_sales"
         createReplace: "Replace"
@@ -142,6 +145,7 @@ pipeline:
         comment:
     S3 Load charlies_shoe_emporium_store_locations:
       type: "s3-load"
+      skipped: false
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_store_locations"
         stage: "[Custom]"
@@ -183,6 +187,7 @@ pipeline:
       transitions:
         success:
         - "Grid Iterator 2"
+      skipped: false
       parameters:
         componentName: "Create Table charlies_shoe_emporium_store_locations"
         createReplace: "Replace"
@@ -214,6 +219,7 @@ pipeline:
         comment:
     And:
       type: "and"
+      skipped: false
       parameters:
         componentName: "And"
     Grid Iterator 2:
@@ -222,6 +228,7 @@ pipeline:
         success:
         - "And"
       iterationTarget: "S3 Load charlies_shoe_emporium_store_locations"
+      skipped: false
       parameters:
         componentName: "Grid Iterator 2"
         gridVariable: "gv_state_list"
@@ -236,6 +243,7 @@ pipeline:
         success:
         - "And"
       iterationTarget: "S3 Load charlies_shoe_emporium_sales"
+      skipped: false
       parameters:
         componentName: "Grid Iterator 4"
         gridVariable: "gv_state_list"
@@ -249,6 +257,7 @@ pipeline:
       transitions:
         success:
         - "S3 Load charlies_shoe_emporium_shoe_specifications"
+      skipped: false
       parameters:
         componentName: "Create Table charlies_shoe_emporium_shoe_specifications"
         createReplace: "Replace"
@@ -339,6 +348,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "S3 Load charlies_shoe_emporium_shoe_specifications"
         stage: "[Custom]"
@@ -380,6 +390,7 @@ pipeline:
       transitions:
         success:
         - "S3 Load STORE_GM_NAMES"
+      skipped: false
       parameters:
         componentName: "Create Table STORE_GM_NAMES"
         createReplace: "Replace"
@@ -414,6 +425,7 @@ pipeline:
       transitions:
         success:
         - "And"
+      skipped: false
       parameters:
         componentName: "S3 Load STORE_GM_NAMES"
         stage: "[Custom]"
@@ -475,7 +487,9 @@ pipeline:
           gvc_state_list:
             columnType: "TEXT"
       defaultValue:
-      - - "Default"
+      - - "FL"
+      - - "CO"
+      - - "OR"
 design:
   components:
     Start:
