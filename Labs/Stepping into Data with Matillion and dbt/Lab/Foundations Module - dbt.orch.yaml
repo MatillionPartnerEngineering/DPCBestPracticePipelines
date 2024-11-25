@@ -13,7 +13,7 @@ pipeline:
       type: "run-orchestration"
       transitions:
         success:
-        - "dbt Core"
+        - "dbt List"
       parameters:
         componentName: "Run load charlies_shoe_emporium data"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/Lab/Prep\
@@ -22,17 +22,65 @@ pipeline:
         setGridVariables:
       postProcessing:
         updateScalarVariables:
-    dbt Core:
+    dbt List:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "dbt debug"
+      parameters:
+        componentName: "dbt List"
+        command: "dbt list"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "kg"
+        gitFolderPath:
+        userName: "cnvertbleweathr@yahoo.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+      postProcessing:
+        updateScalarVariables:
+    dbt debug:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "dbt run"
+      parameters:
+        componentName: "dbt debug"
+        command: "dbt debug"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "kg"
+        gitFolderPath:
+        userName: "cnvertbleweathr@yahoo.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+      postProcessing:
+        updateScalarVariables:
+    dbt run:
       type: "commands-for-dbt-core"
       parameters:
-        componentName: "dbt Core"
+        componentName: "dbt run"
         command: "dbt run"
-        dbtUrl:
-        branch:
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "kg"
         gitFolderPath:
-        userName:
-        gitPassword:
+        userName: "cnvertbleweathr@yahoo.com"
+        gitPassword: "kg_github_cnverttoken"
         mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
         config:
         profileConfig:
       postProcessing:
@@ -46,22 +94,32 @@ design:
       tempMetlId: 1
     Run load charlies_shoe_emporium data:
       position:
-        x: 160
+        x: 150
         "y": 0
       tempMetlId: 2
-    dbt Core:
+    dbt List:
       position:
         x: 430
         "y": 0
       tempMetlId: 3
+    dbt debug:
+      position:
+        x: 710
+        "y": 0
+      tempMetlId: 4
+    dbt run:
+      position:
+        x: 990
+        "y": 0
+      tempMetlId: 5
   notes:
     "1":
       position:
-        x: -510
-        "y": -470
+        x: -820
+        "y": -440
       size:
-        height: 1018
-        width: 410
+        height: 1088
+        width: 740
       theme: "white"
       content: "# dbt Module for Foundations Training\n\n## Description\n\nWelcome\
         \ to the module to learn how to use the dbt Core integration in Matillion\
@@ -83,9 +141,9 @@ design:
     "2":
       position:
         x: 50
-        "y": -160
+        "y": -220
       size:
-        height: 278
+        height: 338
         width: 250
       theme: "light-green"
       content: |-
@@ -95,27 +153,93 @@ design:
     "3":
       position:
         x: 330
-        "y": -160
+        "y": -220
       size:
-        height: 318
+        height: 338
         width: 250
       theme: "light-green"
       content: |-
         _**Step 2**_
 
-        Let's inspect the actions found in [this]( https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/tree/kg/models/1-lacing-up) repository. Find the [**dbt Core**](https://docs.matillion.com/data-productivity-cloud/designer/docs/dbt-core/) component in the Components pane, and drag and drop it here as the next step in the workflow.
+        Let's inspect the actions found in [this]( https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/tree/kg/models/1-lacing-up) repository, using the [**dbt list**](https://docs.getdbt.com/reference/commands/list) command. Find the [**dbt Core**](https://docs.matillion.com/data-productivity-cloud/designer/docs/dbt-core/) component in the Components pane, and drag and drop it here as the next step in the workflow.
     "4":
       position:
-        x: 270
-        "y": 80
+        x: 330
+        "y": 90
       size:
-        height: 288
-        width: 360
+        height: 388
+        width: 250
+      theme: "yellow"
+      content: "Once set above and connected to the previous component, set the following\
+        \ properties:\n- **Component Name**: dbt list\n- **dbt Command**: [dbt list](https://docs.getdbt.com/reference/commands/list)\n\
+        - **Git URL**: Copy and paste the URL of [this](https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/)\
+        \ repository.\n- **Git Branch**: kg\n- **Git Username**: MatillionProServUser\n\
+        - **Git Password**: [Create a secret](https://docs.matillion.com/data-productivity-cloud/designer/docs/secret-definitions/#add-a-secret-definition-matillion-full-saas)\
+        \ with the value Matillion1, then select that secret.\n- **Map dbt Environment\
+        \ Variables**: \n  - **DBT_TARGET_SCHEMA**: Your Environment Default Schema\n\
+        \  - **DBT_TARGET_DATABASE**: Your Environment Default Database\n\nOnce set,\
+        \ run the component."
+    "5":
+      position:
+        x: 40
+        "y": -510
+      size:
+        height: 228
+        width: 410
+      theme: "red"
+      content: |-
+        KG to do's:
+        1. Simplify load data job
+        2. Add system variables once available
+    "6":
+      position:
+        x: 610
+        "y": -220
+      size:
+        height: 338
+        width: 250
+      theme: "light-green"
+      content: |-
+        _**Step 3**_
+
+        Let's validate that the dbt Core component will work as intended and we have the correct Snowflake setup, using the [**dbt debug**](https://docs.getdbt.com/reference/commands/debug) command. Right-click the dbt Core component in the previous step and select **Copy**, then right-click and select **Paste** in this step.
+    "7":
+      position:
+        x: 610
+        "y": 90
+      size:
+        height: 208
+        width: 250
       theme: "yellow"
       content: |-
-        Once set above and connected to the previous component, set the following properties:
-        - **dbt Command**: dbt list
-        - **Git URL**: Copy and paste the URL of [this](https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/) repository.
-        - **Git Branch**: kg
-        - **Git Username**: cnvertbleweathr
-        - **Git Password**: kg_github_cnverttoken
+        Once set above and connected to the previous component, modify the following properties:
+        - **Component Name**: dbt debug
+        - **dbt Command**: [dbt debug](https://docs.getdbt.com/reference/commands/debug)
+
+        Once set, run the component.
+    "8":
+      position:
+        x: 890
+        "y": -220
+      size:
+        height: 338
+        width: 250
+      theme: "light-green"
+      content: |-
+        _**Step 4**_
+
+        Now that the components have validated the models & that they will run correctly, it is now time to run those models using the [**dbt run**](https://docs.getdbt.com/reference/commands/run) command. Right-click the dbt Core component in the previous step and select **Copy**, then right-click and select **Paste** in this step.
+    "9":
+      position:
+        x: 890
+        "y": 90
+      size:
+        height: 208
+        width: 250
+      theme: "yellow"
+      content: |-
+        Once set above and connected to the previous component, modify the following properties:
+        - **Component Name**: dbt run
+        - **dbt Command**: [dbt run](https://docs.getdbt.com/reference/commands/debug)
+
+        Once set, run the component.
