@@ -1,0 +1,519 @@
+type: "orchestration"
+version: "1.0"
+pipeline:
+  components:
+    Start:
+      type: "start"
+      transitions:
+        unconditional:
+        - "dbt list"
+        - "dbt compile"
+      parameters:
+        componentName: "Start"
+    dbt list:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "dbt list"
+        command: "dbt list -s ${dbt_model}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "hitting"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    dbt compile:
+      type: "commands-for-dbt-core"
+      transitions:
+        success:
+        - "And"
+        failure:
+        - "Or"
+      parameters:
+        componentName: "dbt compile"
+        command: "dbt compile -s ${dbt_model}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "hitting"
+        gitFolderPath:
+        userName: "partnersuccess@matillion.com"
+        gitPassword: "kg_github_cnverttoken"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        config:
+        profileConfig:
+    Or:
+      type: "or"
+      transitions:
+        unconditional:
+        - "Setup Failure Email"
+      parameters:
+        componentName: "Or"
+      postProcessing:
+        updateScalarVariables:
+    And:
+      type: "and"
+      transitions:
+        unconditional:
+        - "Grid Iterator"
+      parameters:
+        componentName: "And"
+      postProcessing:
+        updateScalarVariables:
+    dbt test:
+      type: "commands-for-dbt-core"
+      parameters:
+        componentName: "dbt test"
+        command: "${pipe_dbt_command}"
+        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
+        branch: "crossing"
+        gitFolderPath:
+        userName: "MatillionProServUser"
+        gitPassword: "Github_Password"
+        mapDbtEnvironmentVariables:
+        - - "DBT_TARGET_SCHEMA"
+          - "KAREY"
+        - - "DBT_TARGET_DATABASE"
+          - "DEV_DB"
+        config:
+        profileConfig:
+      postProcessing:
+        updateScalarVariables:
+    Grid Iterator:
+      type: "grid-iterator"
+      transitions:
+        success:
+        - "Test Success Email"
+        failure:
+        - "Test Failure Email"
+      iterationTarget: "dbt test"
+      parameters:
+        componentName: "Grid Iterator"
+        gridVariable: "dbt_commands"
+        gridIteratorVariableMapping:
+        - - "dbt_commands"
+          - "pipe_dbt_command"
+        breakOnFailure: "No"
+        concurrency: "Sequential"
+      postProcessing:
+        updateScalarVariables:
+    Setup Failure Email:
+      type: "send-email"
+      transitions:
+        success:
+        - "Or 2"
+      parameters:
+        componentName: "Setup Failure Email"
+        toRecipients:
+        - - "karey.graham@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Setup Checks"
+        message: "dbt setup components - dbt list and dbt compile - failed."
+        senderAddress: "yourtrustypipeline@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    Test Failure Email:
+      type: "send-email"
+      transitions:
+        success:
+        - "Or 2"
+      parameters:
+        componentName: "Test Failure Email"
+        toRecipients:
+        - - "karey.graham@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Failed - dbt Data Quality Checks"
+        message: |-
+          Top Anomaly Detected:
+
+          ${pv_non_accepted_value} : ${pv_non_accepted_value_count}
+        senderAddress: "yourtrustypipeline@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    Test Success Email:
+      type: "send-email"
+      transitions:
+        success:
+        - "End Success"
+      parameters:
+        componentName: "Test Success Email"
+        toRecipients:
+        - - "karey.graham@matillion.com"
+        ccRecipients:
+        subject: "Matillion Pipeline Success - dbt Data Quality Checks"
+        message: "dbt setup components - dbt list and dbt compile - failed."
+        senderAddress: "yourtrustypipeline@gmail.com"
+        replyAddress:
+        smtpUsername: "karey.graham@gmail.com"
+        smtpPassword: "SMTP"
+        smtpHostname: "smtp.gmail.com"
+        smtpPort: "465"
+        enableSslTls: "Yes"
+        enableStarttls: "No"
+    Or 2:
+      type: "or"
+      transitions:
+        unconditional:
+        - "End Failure"
+      parameters:
+        componentName: "Or 2"
+      postProcessing:
+        updateScalarVariables:
+    End Failure:
+      type: "end-failure"
+      parameters:
+        componentName: "End Failure"
+      postProcessing:
+        updateScalarVariables:
+    End Success:
+      type: "end-success"
+      parameters:
+        componentName: "End Success"
+      postProcessing:
+        updateScalarVariables:
+  variables:
+    pipe_dbt_command:
+      metadata:
+        type: "TEXT"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+      defaultValue: "DEFAULT"
+    dbt_commands:
+      metadata:
+        type: "GRID"
+        description: ""
+        scope: "SHARED"
+        visibility: "PUBLIC"
+        columns:
+          dbt_commands:
+            columnType: "TEXT"
+      defaultValue:
+      - - "dbt test"
+      - - "dbt source freshness"
+design:
+  components:
+    Start:
+      position:
+        x: 50
+        "y": 60
+      tempMetlId: 1
+    dbt list:
+      position:
+        x: 240
+        "y": -50
+      tempMetlId: 2
+    dbt compile:
+      position:
+        x: 240
+        "y": 180
+      tempMetlId: 3
+    Or:
+      position:
+        x: 550
+        "y": -50
+      tempMetlId: 4
+    And:
+      position:
+        x: 560
+        "y": 180
+      tempMetlId: 5
+    dbt test:
+      position:
+        x: 950
+        "y": 170
+      tempMetlId: 6
+    Grid Iterator:
+      position:
+        x: 950
+        "y": 170
+      tempMetlId: 7
+    Setup Failure Email:
+      position:
+        x: 1360
+        "y": -140
+      tempMetlId: 11
+    Test Failure Email:
+      position:
+        x: 1360
+        "y": 30
+      tempMetlId: 12
+    Test Success Email:
+      position:
+        x: 1360
+        "y": 200
+      tempMetlId: 13
+    Or 2:
+      position:
+        x: 1770
+        "y": -80
+      tempMetlId: 14
+    End Failure:
+      position:
+        x: 1940
+        "y": -80
+      tempMetlId: 15
+    End Success:
+      position:
+        x: 1830
+        "y": 160
+      tempMetlId: 16
+  notes:
+    "1":
+      position:
+        x: -720
+        "y": -220
+      size:
+        height: 538
+        width: 630
+      theme: "light-blue"
+      content: "## dbt Module for Foundations Training\n**_Part 2 Introduction_**\n\
+        \nWelcome! In _Part 1_ you discovered the basics of using the dbt Core component\
+        \ and ran your first models, after validating the setup of the project. \n\
+        \nIn this section, we will build a testing framework that will result in a\
+        \ notification sent to a set of users. Now, _which notification_ that will\
+        \ be sent will depend on the pass or fail of certain [dbt tests](https://docs.getdbt.com/reference/commands/test).\
+        \ This system of dbt tests and when a notification will be sent can be best\
+        \ explained in the following graph:\n![Image](https://lh7-rt.googleusercontent.com/docsz/AD_4nXeSFmeDrgp14OqmfiE_Hil7WUyYt0ncvZfG29H3EKZWSBJ22HUm0RoPhP-YM-ryHlT7fw4T4SQjyGIb3KnW3GH6O5npx-pqgD7QhOeDkRkkqh8vJz8SBNvTXJB3m9LyRrRMbwo_NRKpOrHY-bgajfCRkbu3?key=31-A_q5x-eBfXm7-e59Smg)\n\
+        \nWe already got you started on the first couple steps of the lab. Continue\
+        \ on to build your data quality testing framework!"
+    "2":
+      position:
+        x: -10
+        "y": -190
+      size:
+        height: 468
+        width: 380
+      theme: "light-green"
+      content: |-
+        **_Background_**
+
+        Just like last lesson, our pipeline begins with the **dbt list** and **dbt compile** commands. We want to ensure that both succeed in order for the pipeline to progress. We also want the framework to stop and notify the users in the event of failure.
+    "3":
+      position:
+        x: 390
+        "y": -190
+      size:
+        height: 218
+        width: 380
+      theme: "light-green"
+      content: |-
+        **_Step 1a_** - The [**Or**](https://docs.matillion.com/data-productivity-cloud/designer/docs/or/) Component
+
+        Find the [**Or**](https://docs.matillion.com/data-productivity-cloud/designer/docs/or/) Component and place it in this note. Then set two **Failure** connectors between the two previous dbt components to the Or component.
+    "4":
+      position:
+        x: 390
+        "y": 40
+      size:
+        height: 238
+        width: 380
+      theme: "light-green"
+      content: |-
+        **_Step 1b_** - The [**And**](https://docs.matillion.com/data-productivity-cloud/designer/docs/and/) Component
+
+        Find the [**And**](https://docs.matillion.com/data-productivity-cloud/designer/docs/and/) Component and place it in this note. Then set two **Success** connectors between the two previous dbt components to the And component.
+    "5":
+      position:
+        x: 390
+        "y": 270
+      size:
+        height: 468
+        width: 380
+      theme: "light-green"
+      content: "**_Step 2 - Create a [Grid Variable](https://docs.matillion.com/data-productivity-cloud/designer/docs/grid-variables/)_**\n\
+        \nWe want to use iterate through two dbt commands in a single dbt Core component\
+        \ in the next step. To do so, we will put Grid Variables to use.\n\nIn the\
+        \ left pane, go to the **Variables** tab. Note that the variable _pipe_dbt_command_\
+        \ has already been created. Click **Add** to create a new variable. \n\nSet\
+        \ it as a **Pipeline Variable** with type **Grid**. \n\nSet the name to _test_commands_\
+        \ with **Public** Visibility and **Shared** Behavior.\n\nAdd a single column\
+        \ titled _dbt_commands_ of the **Text** type.\n\nFinally, include 2 values:\
+        \ _dbt test_ and\n_dbt source freshness_ and click **Finish** to wrap up creation\
+        \ of the grid variable!"
+    "6":
+      position:
+        x: 790
+        "y": -280
+      size:
+        height: 558
+        width: 380
+      theme: "light-green"
+      content: "_**Step 3**_ - Test Data Quality Using dbt\n\nWe will now use a single\
+        \ dbt Core component to run the [dbt test](https://docs.getdbt.com/reference/commands/test)\
+        \ and [dbt source freshness]( commands.https://docs.getdbt.com/docs/deploy/source-freshness)\
+        \ commands. \n\nWhich tests, you ask? We wish to run data quality tests on\
+        \ STG_CHARLIES_SALES view created in Lesson 1. The following six checks will\
+        \ be made:\n- Column TRANSACTION_ID is unique and not null\n- Column SALE_INDICATOR\
+        \ exists and has the values of either TRUE or FALSE\n- Column PRODUCT_NAME\
+        \ has 15 or fewer distinct values\n- The dataset is less than 5 days old\n\
+        \nSteps:\n1) Drag and drop a new **dbt Core** component as the next step\n\
+        2) Find the [**Grid Iterator**](https://docs.matillion.com/data-productivity-cloud/designer/docs/grid-iterator/)\
+        \ and attach it to the dbt Core component\n3) Connect it to the previous **And**\
+        \ component "
+    "7":
+      position:
+        x: 790
+        "y": 270
+      size:
+        height: 478
+        width: 380
+      theme: "yellow"
+      content: "Once set above and connected to the previous component, set the following\
+        \ properties:\n\n- **[Grid Iterator](https://docs.matillion.com/data-productivity-cloud/designer/docs/grid-iterator/)**\n\
+        \   - **Grid Variable:** dbt_commands\n   - **Grid Iterator Variable Mapping:**\
+        \ dbt_commands | pipe_dbt_command\n\n- **dbt Core**\n   - **Component Name**:\
+        \ dbt test\n   - **dbt Command**: ${pipe_dbt_command}\n   - **Git URL**: Copy\
+        \ and paste the URL of [this](https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/)\
+        \ repository.\n   - **Git Branch**: kg\n   - **Git Username**: MatillionProServUser\n\
+        \   - **Git Password**: dbt_access, which was created in the first lab.\n\
+        \   - **Map dbt Environment Variables**: \n  - **DBT_TARGET_SCHEMA**: Your\
+        \ Environment Default Schema\n  - **DBT_TARGET_DATABASE**: Your Environment\
+        \ Default Database\n\nOnce set, run the combination of components."
+    "8":
+      position:
+        x: 1190
+        "y": -280
+      size:
+        height: 548
+        width: 380
+      theme: "light-green"
+      content: "**_Step 4_** - [Send Email](https://docs.matillion.com/data-productivity-cloud/designer/docs/send-email/)\
+        \ Components"
+    "9":
+      position:
+        x: 1230
+        "y": -230
+      size:
+        height: 158
+        width: 300
+      theme: "red"
+      content: |-
+        __Validation failure email__
+
+        Connect to the Step 1a Or Component
+    "10":
+      position:
+        x: 1230
+        "y": -70
+      size:
+        height: 168
+        width: 300
+      theme: "red"
+      content: |-
+        __Data Quality test failure email__
+
+        Connect to the dbt test component found in Step 3 via a __Failure__ connector
+    "11":
+      position:
+        x: 1230
+        "y": 100
+      size:
+        height: 168
+        width: 300
+      theme: "green"
+      content: |-
+        __Data Quality test success email__
+
+        Connect to the dbt test component found in Step 3 via a __Success__ connector
+    "12":
+      position:
+        x: 1200
+        "y": 270
+      size:
+        height: 158
+        width: 380
+      theme: "yellow"
+      content: |-
+        Once the components are connected as instructed, set the following property:
+
+        **To Recipients**: Set your email as the recipeient!
+
+        Once set, run the pipeline to run the workflow, which should result in an email hitting your inbox.
+    "13":
+      position:
+        x: 1590
+        "y": -280
+      size:
+        height: 548
+        width: 550
+      theme: "light-green"
+      content: "**_Step 5_** - [End Success](https://docs.matillion.com/data-productivity-cloud/designer/docs/end-success/)\
+        \ and [End Failure](https://docs.matillion.com/data-productivity-cloud/designer/docs/end-failure/)\
+        \ Components"
+    "14":
+      position:
+        x: 1620
+        "y": -200
+      size:
+        height: 198
+        width: 480
+      theme: "red"
+      content: |-
+        __Failure Path__
+
+        Drag out __Or__ and __End Failure__ components and connect the Or to the two failure email components, then connect the Or to a __End Failure__ component.
+    "15":
+      position:
+        x: 1710
+        "y": 40
+      size:
+        height: 208
+        width: 300
+      theme: "green"
+      content: |-
+        __Success Path__
+
+        Find the __End Success__ component and drag and drop it below. Then connect it to the Success Email component in the previous step.
+    "16":
+      position:
+        x: 2230
+        "y": -250
+      size:
+        height: 478
+        width: 760
+      theme: "light-blue"
+      content: |-
+        ## dbt Module for Foundations Training
+        **_Part 2 Conclusion_**
+
+        Great work building out the dbt-based testing framework. You've been able to validate the setup of the dbt project as well as if your data exhibits production-level quality. On top of that, a dependency network was built to allow for dynamic notifications to be sent communicating the success or failure of those tests.
+
+        Here is a listing of the different dbt and Matillion functionality which was covered:
+
+        - __dbt Commands__:
+           - [list](https://docs.getdbt.com/reference/commands/list)
+           - [debug](https://docs.getdbt.com/reference/commands/debug)
+           - [test](https://docs.getdbt.com/reference/commands/test)
+           - [source freshness](https://docs.getdbt.com/docs/deploy/source-freshness)
+        - __Matillion Components__:
+           - [Component Connections](https://docs.matillion.com/data-productivity-cloud/designer/docs/components-overview/#connect-components)
+           - [And](https://docs.matillion.com/data-productivity-cloud/designer/docs/and)
+           - [Or](https://docs.matillion.com/data-productivity-cloud/designer/docs/or/)
+           - [Grid Variables](https://docs.matillion.com/data-productivity-cloud/designer/docs/grid-variables/)
+           - [Grid Iterator](https://docs.matillion.com/data-productivity-cloud/designer/docs/grid-iterator/)
+           - [Send Email](https://docs.matillion.com/data-productivity-cloud/designer/docs/send-email/)
+           - [End Success](https://docs.matillion.com/data-productivity-cloud/designer/docs/end-success/)
+           - [End Failure](https://docs.matillion.com/data-productivity-cloud/designer/docs/end-failure/)

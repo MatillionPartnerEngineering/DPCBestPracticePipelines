@@ -11,9 +11,6 @@ pipeline:
         componentName: "Start"
     Run load charlies_shoe_emporium data:
       type: "run-orchestration"
-      transitions:
-        success:
-        - "dbt List"
       parameters:
         componentName: "Run load charlies_shoe_emporium data"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/Lab/Prep\
@@ -22,67 +19,16 @@ pipeline:
         setGridVariables:
       postProcessing:
         updateScalarVariables:
-    dbt List:
-      type: "commands-for-dbt-core"
-      transitions:
-        success:
-        - "dbt debug"
+    End Success:
+      type: "end-success"
       parameters:
-        componentName: "dbt List"
-        command: "dbt list"
-        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
-        branch: "kg"
-        gitFolderPath:
-        userName: "cnvertbleweathr@yahoo.com"
-        gitPassword: "kg_github_cnverttoken"
-        mapDbtEnvironmentVariables:
-        - - "DBT_TARGET_DATABASE"
-          - "DEV_DB"
-        - - "DBT_TARGET_SCHEMA"
-          - "KAREY"
-        config:
-        profileConfig:
+        componentName: "End Success"
       postProcessing:
         updateScalarVariables:
-    dbt debug:
-      type: "commands-for-dbt-core"
-      transitions:
-        success:
-        - "dbt run"
+    End Failure:
+      type: "end-failure"
       parameters:
-        componentName: "dbt debug"
-        command: "dbt debug"
-        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
-        branch: "kg"
-        gitFolderPath:
-        userName: "cnvertbleweathr@yahoo.com"
-        gitPassword: "kg_github_cnverttoken"
-        mapDbtEnvironmentVariables:
-        - - "DBT_TARGET_DATABASE"
-          - "DEV_DB"
-        - - "DBT_TARGET_SCHEMA"
-          - "KAREY"
-        config:
-        profileConfig:
-      postProcessing:
-        updateScalarVariables:
-    dbt run:
-      type: "commands-for-dbt-core"
-      parameters:
-        componentName: "dbt run"
-        command: "dbt run"
-        dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
-        branch: "kg"
-        gitFolderPath:
-        userName: "cnvertbleweathr@yahoo.com"
-        gitPassword: "kg_github_cnverttoken"
-        mapDbtEnvironmentVariables:
-        - - "DBT_TARGET_DATABASE"
-          - "DEV_DB"
-        - - "DBT_TARGET_SCHEMA"
-          - "KAREY"
-        config:
-        profileConfig:
+        componentName: "End Failure"
       postProcessing:
         updateScalarVariables:
 design:
@@ -97,53 +43,48 @@ design:
         x: 150
         "y": 0
       tempMetlId: 2
-    dbt List:
+    End Success:
       position:
-        x: 430
-        "y": 0
-      tempMetlId: 3
-    dbt debug:
+        x: 1280
+        "y": -50
+      tempMetlId: 6
+    End Failure:
       position:
-        x: 710
-        "y": 0
-      tempMetlId: 4
-    dbt run:
-      position:
-        x: 990
-        "y": 0
-      tempMetlId: 5
+        x: 1280
+        "y": 30
+      tempMetlId: 7
   notes:
     "1":
       position:
-        x: -820
-        "y": -440
+        x: -490
+        "y": -220
       size:
-        height: 1088
-        width: 740
-      theme: "white"
-      content: "# dbt Module for Foundations Training\n\n## Description\n\nWelcome\
-        \ to the module to learn how to use the dbt Core integration in Matillion\
+        height: 908
+        width: 440
+      theme: "light-blue"
+      content: "## dbt Module for Foundations Training\n_Part 1_\n\n![Image](https://lh7-rt.googleusercontent.com/docsz/AD_4nXfDefkNd6eXL2FN6fssB6GBljEP-nGkOcFLdGZuMLJHiju2V340YlkupSPag81Xl80R-CsACBpvWkis1Lrh3WpmvA8ppUlBLtySVMzHVP1owXyjMsl3xz6XzrcH-UBBp1IuaJzmYpJl3g-hlENYbdMxq5vJ?key=Y4EZ7GOgvSH_slnCz4MPVg)\n\
+        \nWelcome to the module to learn how to use the dbt Core integration in Matillion\
         \ Data Productivity Cloud. Follow the prompts provided in the embedded jobs\
-        \ within the training.\n\nBy the end of this module you will:\n\n- Discover\
-        \ how to use the dbt Core component, in conjunction with Matillion's Extract+Load\
-        \ functionality  \n- Configure the component to source a dbt project from\
-        \ a repository  \n- Feed dbt environment variables from a Matillion pipeline\
-        \  \n- Transform and test the quality of data  \n- Build a notification system\
-        \ dependent on the success or failure of dbt tests  \n\n## Helpful Links and\
-        \ Blogs\n\n- [dbt Core component documentation](https://docs.matillion.com/data-productivity-cloud/designer/docs/dbt-core/)\
+        \ within the training.\n\n## Goals\n\nBy the end of this module you will:\n\
+        \n- Discover how to use the dbt Core component, in conjunction with Matillion's\
+        \ Extract+Load functionality  \n- Configure the component to source a dbt\
+        \ project from a repository  \n- Feed dbt environment variables from a Matillion\
+        \ pipeline  \n- Transform and test the quality of data  \n- Build a notification\
+        \ system dependent on the success or failure of dbt tests  \n\n## Helpful\
+        \ Links and Blogs\n\n- [dbt Core component documentation](https://docs.matillion.com/data-productivity-cloud/designer/docs/dbt-core/)\
         \  \n- [Blog 1 - Lacing up: An introduction to dbt Core and Matillion Data\
         \ Productivity Cloud](https://www.matillion.com/blog/getting-started-with-matillion-and-dbt)\
         \  \n- [Blog 2 - Hitting the ground running: Testing data quality using dbt\
         \ and Matillion](https://www.matillion.com/blog/testing-data-quality-using-dbt-and-matillion)\
         \  \n- [Blog 3 - Crossing the finish line: Executing AI workloads using dbt\
         \ and Matillion](https://www.matillion.com/blog/crossing-the-finish-line-executing-ai-workloads-using-dbt-and-matillion)\
-        \  \n\nLet's get started!\n\n![Image](https://media1.tenor.com/m/BLVFQOzowPgAAAAd/mxc-most-extreme-elimination-challenge.gif)"
+        \  \n\nLet's get started!"
     "2":
       position:
         x: 50
         "y": -220
       size:
-        height: 338
+        height: 368
         width: 250
       theme: "light-green"
       content: |-
@@ -175,10 +116,10 @@ design:
         - **Git URL**: Copy and paste the URL of [this](https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/)\
         \ repository.\n- **Git Branch**: kg\n- **Git Username**: MatillionProServUser\n\
         - **Git Password**: [Create a secret](https://docs.matillion.com/data-productivity-cloud/designer/docs/secret-definitions/#add-a-secret-definition-matillion-full-saas)\
-        \ with the value Matillion1, then select that secret.\n- **Map dbt Environment\
-        \ Variables**: \n  - **DBT_TARGET_SCHEMA**: Your Environment Default Schema\n\
-        \  - **DBT_TARGET_DATABASE**: Your Environment Default Database\n\nOnce set,\
-        \ run the component."
+        \ called **dbt_access** with the value Matillion1, then select that secret.\n\
+        - **Map dbt Environment Variables**: \n  - **DBT_TARGET_SCHEMA**: Your Environment\
+        \ Default Schema\n  - **DBT_TARGET_DATABASE**: Your Environment Default Database\n\
+        \nOnce set, run the component."
     "5":
       position:
         x: 40
@@ -243,3 +184,15 @@ design:
         - **dbt Command**: [dbt run](https://docs.getdbt.com/reference/commands/debug)
 
         Once set, run the component.
+    "10":
+      position:
+        x: 1180
+        "y": -220
+      size:
+        height: 348
+        width: 250
+      theme: "light-green"
+      content: |-
+        **_Step 5_**
+
+        Once having successfully run the dbt run component, connect to the below components using appropriate  **Success** and **Failure** connections.
