@@ -11,6 +11,9 @@ pipeline:
         componentName: "Start"
     Run load charlies_shoe_emporium data:
       type: "run-orchestration"
+      transitions:
+        success:
+        - "dbt Core"
       parameters:
         componentName: "Run load charlies_shoe_emporium data"
         orchestrationJob: "Labs/Stepping into Data with Matillion and dbt/Lab/Prep\
@@ -29,6 +32,21 @@ pipeline:
       type: "end-failure"
       parameters:
         componentName: "End Failure"
+      postProcessing:
+        updateScalarVariables:
+    dbt Core:
+      type: "commands-for-dbt-core"
+      parameters:
+        componentName: "dbt Core"
+        command: "dbt"
+        dbtUrl:
+        branch: "kg"
+        gitFolderPath: ""
+        userName:
+        gitPassword:
+        mapDbtEnvironmentVariables:
+        config:
+        profileConfig:
       postProcessing:
         updateScalarVariables:
 design:
@@ -53,6 +71,11 @@ design:
         x: 1280
         "y": 30
       tempMetlId: 7
+    dbt Core:
+      position:
+        x: 420
+        "y": 0
+      tempMetlId: 8
   notes:
     "1":
       position:

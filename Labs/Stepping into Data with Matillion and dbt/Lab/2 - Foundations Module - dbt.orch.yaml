@@ -78,7 +78,7 @@ pipeline:
         componentName: "dbt test"
         command: "${pipe_dbt_command}"
         dbtUrl: "https://github.com/MatillionPartnerEngineering/Stepping-into-Data-with-Matillion-and-dbt/"
-        branch: "crossing"
+        branch: ""
         gitFolderPath:
         userName: "MatillionProServUser"
         gitPassword: "Github_Password"
@@ -376,9 +376,9 @@ design:
     "7":
       position:
         x: 790
-        "y": 270
+        "y": 260
       size:
-        height: 478
+        height: 468
         width: 380
       theme: "yellow"
       content: "Once set above and connected to the previous component, set the following\
@@ -440,7 +440,7 @@ design:
         Connect to the dbt test component found in Step 3 via a __Success__ connector
     "12":
       position:
-        x: 1200
+        x: 1190
         "y": 270
       size:
         height: 158

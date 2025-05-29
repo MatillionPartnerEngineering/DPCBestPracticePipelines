@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: CHARLIES_SHOE_EMPORIUM
+    quoting: 
+      database: true
+      schema: true
+      identifier: true
+    database: "{{ env_var('DBT_TARGET_DATABASE') }}"
+    schema: "{{ env_var('DBT_TARGET_SCHEMA') }}"
+    tables:
+      - name: SRC_CHARLIES_SHOE_EMPORIUM_SALES

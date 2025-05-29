@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: STG_CHARLIES_SALES_ALLSTATES
+    tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          max_value: 75000 # (Optional)
+      - dbt_expectations.expect_table_column_count_to_equal:
+          value: 21
+    columns:
+      - name: TRANSACTION_ID
+        description: "Unique ID for each sale"
+        tests:
+          - unique:
+              config:
+                where: "TRANSACTION_DATE <= LAST_UPDATED"
+      - name: PRODUCT_PRICE
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 50  # (Optional)
+              max_value: 220 # (Optional)
+      - name: PRODUCT_NAME
+        tests:
+          - dbt_expectations.expect_column_distinct_count_to_be_less_than:
+              value: 16              
