@@ -7,6 +7,7 @@ pipeline:
       transitions:
         unconditional:
         - "Run Barista Reviews - Extract and Load"
+        - "Alter Warehouse"
       parameters:
         componentName: "Start"
     Run Barista Reviews - Extract and Load:
@@ -46,6 +47,15 @@ pipeline:
         transformationJob: "AI/Barista Reviews/Barista Reviews - Transform and Integrate"
         setScalarVariables:
         setGridVariables:
+    Alter Warehouse:
+      type: "alter-warehouse"
+      parameters:
+        componentName: "Alter Warehouse"
+        warehouse: "[Environment Default]"
+        commandType: "Resume"
+      postProcessing:
+        updateOutputMessage:
+        updateScalarVariables:
 design:
   components:
     Start:
@@ -73,3 +83,8 @@ design:
         x: 790
         "y": 0
       tempMetlId: 5
+    Alter Warehouse:
+      position:
+        x: 260
+        "y": -130
+      tempMetlId: 6
