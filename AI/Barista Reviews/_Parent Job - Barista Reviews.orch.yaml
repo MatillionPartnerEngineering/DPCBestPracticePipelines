@@ -56,7 +56,7 @@ design:
     Run Barista Reviews - Extract and Load:
       position:
         x: 180
-        "y": 0
+        "y": 30
       tempMetlId: 2
     Run Barista Reviews - Azure OpenAI:
       position:
